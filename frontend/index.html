@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Engram PWA</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.png" />
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface: '#13131A',
+            primary: '#6366F1',
+            primaryFocus: '#8B5CF6',
+            success: '#10B981',
+            danger: '#F43F5E'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #0A0A0F; color: #FFF; font-family: 'Inter', sans-serif; }
+    /* Hide scrollbars */
+    ::-webkit-scrollbar { width: 0px; background: transparent; }
+  </style>
+
+  <!-- React & ReactDOM (v18 with useSyncExternalStore built-in) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel Standalone (for JSX) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- React Router DOM (v6) -->
+  <script src="https://unpkg.com/react-router-dom@6.21.3/dist/umd/react-router-dom.production.min.js"></script>
+
+  <!-- Axios -->
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  
+  <!-- Icons (Lucide) -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Tiny Zustand replacement: creates window.createStore -->
+  <script>
+    window.createStore = function(initializer) {
+      var state;
+      var listeners = new Set();
+      var setState = function(partial) {
+        var nextState = typeof partial === 'function' ? partial(state) : partial;
+        if (nextState !== state) {
+          state = Object.assign({}, state, nextState);
+          listeners.forEach(function(l) { l(); });
+        }
+      };
+      var getState = function() { return state; };
+      var subscribe = function(listener) {
+        listeners.add(listener);
+        return function() { listeners.delete(listener); };
+      };
+      state = initializer(setState, getState);
+      return { setState: setState, getState: getState, subscribe: subscribe };
+    };
+  </script>
+
+</head>
+<body class="antialiased">
+  <div id="root"></div>
+  <script type="text/babel" src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then(registration => {
+          console.log('SW registered: ', registration);
+        }).catch(registrationError => {
+          console.log('SW registration failed: ', registrationError);
+        });
+      });
+    }
+  </script>
+</body>
+</html>

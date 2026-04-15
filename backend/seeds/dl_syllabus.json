@@ -1,0 +1,566 @@
+{
+  "syllabus_id": "deep_learning_v1",
+  "title": "Deep Learning",
+  "source": "Hands-On Machine Learning with Scikit-Learn, Keras & TensorFlow (Aurélien Géron)",
+  "version": "1.0.0",
+  "total_topics": 8,
+  "topics": [
+    {
+      "topic_id": "dl_01",
+      "name": "Linear Algebra & Calculus for DL",
+      "category": "foundations",
+      "order": 1,
+      "estimated_minutes": 40,
+      "cards": [
+        {
+          "card_id": "dl_01_c01",
+          "title": "Scalar, Vector, Matrix, Tensor",
+          "type": "basics",
+          "difficulty": "easy",
+          "content": "Scalar = single number. Vector = 1D array. Matrix = 2D array. Tensor = N-dimensional array. PyTorch and TensorFlow operate entirely on tensors.",
+          "tags": ["tensor", "matrix", "vector"]
+        },
+        {
+          "card_id": "dl_01_c02",
+          "title": "Dot Product",
+          "type": "formula",
+          "difficulty": "easy",
+          "content": "A · B = Σ(aᵢ × bᵢ). Used in every neural network layer: output = W · x + b. Geometrically measures how aligned two vectors are.",
+          "tags": ["dot product", "matrix multiply"]
+        },
+        {
+          "card_id": "dl_01_c03",
+          "title": "Chain Rule (Backprop Foundation)",
+          "type": "must_know",
+          "difficulty": "medium",
+          "content": "If y = f(g(x)), then dy/dx = (dy/dg) × (dg/dx). This is the entire mathematical basis of backpropagation. Every gradient computation chains these derivatives through the network.",
+          "tags": ["calculus", "chain rule", "backprop"]
+        },
+        {
+          "card_id": "dl_01_c04",
+          "title": "Gradient",
+          "type": "must_know",
+          "difficulty": "medium",
+          "content": "A gradient is a vector of partial derivatives ∇L = [∂L/∂w₁, ∂L/∂w₂, ...]. It points in the direction of steepest increase of the loss. We move opposite to it in gradient descent.",
+          "tags": ["gradient", "partial derivative"]
+        }
+      ],
+      "mcqs": [
+        {
+          "mcq_id": "dl_01_m01",
+          "question": "A 3-channel RGB image of size 224×224 is stored as a tensor of shape:",
+          "options": ["224×224", "3×224×224", "224×224×3 or 3×224×224 depending on convention", "Flat vector of 150528"],
+          "correct_index": 2,
+          "explanation": "Both (H, W, C) and (C, H, W) are valid conventions. TensorFlow uses (H,W,C) by default; PyTorch uses (C,H,W). Knowing the convention is critical to avoid shape errors.",
+          "difficulty": "medium",
+          "tags": ["tensor", "image shape"]
+        },
+        {
+          "mcq_id": "dl_01_m02",
+          "question": "The chain rule in calculus is the mathematical basis of which DL operation?",
+          "options": ["Forward pass", "Backpropagation", "Batch normalization", "Dropout"],
+          "correct_index": 1,
+          "explanation": "Backpropagation applies the chain rule recursively from the output layer back to the input layer to compute gradients for every weight.",
+          "difficulty": "easy",
+          "tags": ["chain rule", "backprop"]
+        },
+        {
+          "mcq_id": "dl_01_m03",
+          "question": "In gradient descent, weights are updated as w = w - η∇L. What does η represent?",
+          "options": ["Momentum coefficient", "Learning rate", "Regularization term", "Batch size"],
+          "correct_index": 1,
+          "explanation": "η (eta) is the learning rate — it controls how large a step we take in the direction opposite to the gradient. Too large = diverge, too small = slow convergence.",
+          "difficulty": "easy",
+          "tags": ["learning rate", "gradient descent"]
+        }
+      ]
+    },
+    {
+      "topic_id": "dl_02",
+      "name": "Neural Networks from Scratch",
+      "category": "fundamentals",
+      "order": 2,
+      "estimated_minutes": 60,
+      "cards": [
+        {
+          "card_id": "dl_02_c01",
+          "title": "Perceptron",
+          "type": "basics",
+          "difficulty": "easy",
+          "content": "A single neuron: output = activation(W·x + b). Input features × weights → sum → activation function → output. The building block of all neural networks.",
+          "tags": ["perceptron", "neuron"]
+        },
+        {
+          "card_id": "dl_02_c02",
+          "title": "Activation Functions",
+          "type": "formula",
+          "difficulty": "medium",
+          "content": "ReLU: max(0, x) — most common, avoids vanishing gradient. Sigmoid: 1/(1+e⁻ˣ) — output layers for binary classification. Softmax: eˣⁱ/Σeˣʲ — multiclass output. Tanh: (eˣ-e⁻ˣ)/(eˣ+e⁻ˣ) — centered at 0.",
+          "tags": ["relu", "sigmoid", "softmax", "tanh"]
+        },
+        {
+          "card_id": "dl_02_c03",
+          "title": "Vanishing Gradient Problem",
+          "type": "must_know",
+          "difficulty": "hard",
+          "content": "In deep networks, gradients shrink exponentially as they flow backward through sigmoid/tanh layers (derivatives < 1). Early layers learn almost nothing. Fix: ReLU, batch norm, residual connections.",
+          "tags": ["vanishing gradient", "deep networks"]
+        },
+        {
+          "card_id": "dl_02_c04",
+          "title": "Universal Approximation Theorem",
+          "type": "interview_question",
+          "difficulty": "hard",
+          "content": "A neural network with a single hidden layer of sufficient width can approximate any continuous function to arbitrary precision. This is WHY neural networks work — but it doesn't tell us HOW to train them.",
+          "tags": ["theory", "interview"]
+        },
+        {
+          "card_id": "dl_02_c05",
+          "title": "Loss Functions",
+          "type": "formula",
+          "difficulty": "medium",
+          "content": "MSE: Σ(ŷ-y)²/n → regression. Cross-entropy: -Σyᵢlog(ŷᵢ) → classification. Binary cross-entropy: -(y·log(ŷ) + (1-y)·log(1-ŷ)) → binary problems. Loss measures how wrong the model is.",
+          "tags": ["loss function", "mse", "cross entropy"]
+        }
+      ],
+      "mcqs": [
+        {
+          "mcq_id": "dl_02_m01",
+          "question": "Which activation function is most commonly used in hidden layers of modern deep networks?",
+          "options": ["Sigmoid", "Tanh", "ReLU", "Softmax"],
+          "correct_index": 2,
+          "explanation": "ReLU (max(0,x)) is the default choice. It avoids vanishing gradients (derivative is 1 for positive inputs), is computationally cheap, and leads to sparse activations.",
+          "difficulty": "easy",
+          "tags": ["activation", "relu"]
+        },
+        {
+          "mcq_id": "dl_02_m02",
+          "question": "Why does sigmoid activation cause vanishing gradients in deep networks?",
+          "options": ["Its output is always negative", "Its derivative is always > 1, exploding gradients", "Its derivative peaks at 0.25, so gradients shrink each layer", "It doesn't support backpropagation"],
+          "correct_index": 2,
+          "explanation": "The sigmoid derivative σ'(x) = σ(x)(1-σ(x)) has a maximum of 0.25. Multiplied across 10 layers: 0.25¹⁰ ≈ 0.000001. Gradients virtually disappear before reaching early layers.",
+          "difficulty": "hard",
+          "tags": ["sigmoid", "vanishing gradient"]
+        },
+        {
+          "mcq_id": "dl_02_m03",
+          "question": "For a 10-class classification problem, which output activation + loss combination is correct?",
+          "options": ["Sigmoid + MSE", "Softmax + Categorical Cross-Entropy", "ReLU + Binary Cross-Entropy", "Tanh + MSE"],
+          "correct_index": 1,
+          "explanation": "Softmax converts logits to probabilities that sum to 1 across 10 classes. Categorical cross-entropy measures the divergence between predicted and true probability distributions.",
+          "difficulty": "medium",
+          "tags": ["softmax", "cross entropy", "classification"]
+        }
+      ]
+    },
+    {
+      "topic_id": "dl_03",
+      "name": "Training Deep Networks",
+      "category": "optimization",
+      "order": 3,
+      "estimated_minutes": 60,
+      "cards": [
+        {
+          "card_id": "dl_03_c01",
+          "title": "Gradient Descent Variants",
+          "type": "must_know",
+          "difficulty": "medium",
+          "content": "Batch GD: use all data → stable but slow. SGD: one sample → noisy but fast. Mini-batch GD: use N samples (typically 32-256) → best of both. Mini-batch is standard in practice.",
+          "tags": ["gradient descent", "sgd", "mini-batch"]
+        },
+        {
+          "card_id": "dl_03_c02",
+          "title": "Optimizers",
+          "type": "formula",
+          "difficulty": "hard",
+          "content": "Momentum: accumulates velocity to speed through flat regions. RMSProp: adapts lr per-parameter based on recent gradient magnitudes. Adam = Momentum + RMSProp. Adam is default choice for most problems.",
+          "tags": ["adam", "momentum", "rmsprop"]
+        },
+        {
+          "card_id": "dl_03_c03",
+          "title": "Overfitting & Regularization",
+          "type": "must_know",
+          "difficulty": "medium",
+          "content": "Overfitting = model memorizes training data, fails on unseen data. Fixes: Dropout (randomly zero neurons during training), L2/L1 regularization (penalize large weights), early stopping, data augmentation.",
+          "tags": ["overfitting", "dropout", "regularization"]
+        },
+        {
+          "card_id": "dl_03_c04",
+          "title": "Batch Normalization",
+          "type": "must_know",
+          "difficulty": "hard",
+          "content": "Normalize activations within each mini-batch: x̂ = (x - μ)/σ, then scale: y = γx̂ + β. Reduces internal covariate shift, allows higher learning rates, acts as regularizer. Apply before activation.",
+          "tags": ["batch norm", "normalization"]
+        },
+        {
+          "card_id": "dl_03_c05",
+          "title": "Learning Rate Scheduling",
+          "type": "formula",
+          "difficulty": "medium",
+          "content": "Start with large lr for fast initial progress, reduce over time for fine convergence. Methods: step decay, exponential decay, cosine annealing, warmup (used in transformers).",
+          "tags": ["learning rate", "scheduling", "warmup"]
+        }
+      ],
+      "mcqs": [
+        {
+          "mcq_id": "dl_03_m01",
+          "question": "Adam optimizer combines which two methods?",
+          "options": ["SGD + L2 regularization", "Momentum + RMSProp", "Adagrad + Dropout", "RMSProp + L1 regularization"],
+          "correct_index": 1,
+          "explanation": "Adam = Adaptive Moment Estimation. It keeps a moving average of gradients (momentum) AND a moving average of squared gradients (RMSProp), combining both for per-parameter adaptive learning rates.",
+          "difficulty": "medium",
+          "tags": ["adam", "optimizer"]
+        },
+        {
+          "mcq_id": "dl_03_m02",
+          "question": "Dropout with rate p=0.5 means:",
+          "options": ["50% of weights are permanently removed", "50% of neurons are randomly zeroed each forward pass during training", "The learning rate is halved every epoch", "50% of training data is dropped each batch"],
+          "correct_index": 1,
+          "explanation": "During training, each neuron's output is set to 0 with probability p at each forward pass. At test time, no dropout — but outputs are scaled by (1-p). Forces redundant representations.",
+          "difficulty": "medium",
+          "tags": ["dropout", "regularization"]
+        },
+        {
+          "mcq_id": "dl_03_m03",
+          "question": "Batch normalization is applied:",
+          "options": ["Only at the output layer", "After the activation function", "Before or after activation (typically before), within hidden layers", "Only during testing"],
+          "correct_index": 2,
+          "explanation": "BatchNorm is applied in hidden layers, typically before activation (though after is also used). It normalizes the pre-activation values so activations don't saturate. Never applied to the output layer.",
+          "difficulty": "hard",
+          "tags": ["batch norm"]
+        }
+      ]
+    },
+    {
+      "topic_id": "dl_04",
+      "name": "Convolutional Neural Networks (CNN)",
+      "category": "architectures",
+      "order": 4,
+      "estimated_minutes": 70,
+      "cards": [
+        {
+          "card_id": "dl_04_c01",
+          "title": "Convolution Operation",
+          "type": "must_know",
+          "difficulty": "medium",
+          "content": "A filter/kernel slides over the input, computing dot products at each position. Output_size = (Input - Kernel + 2×Padding) / Stride + 1. Learns spatial hierarchies of features automatically.",
+          "tags": ["convolution", "kernel", "filter"]
+        },
+        {
+          "card_id": "dl_04_c02",
+          "title": "Pooling Layers",
+          "type": "basics",
+          "difficulty": "easy",
+          "content": "Max pooling: take max value in each window → preserves dominant features. Average pooling: take mean → smoother. Reduces spatial size, provides translation invariance, reduces parameters.",
+          "tags": ["pooling", "max pooling"]
+        },
+        {
+          "card_id": "dl_04_c03",
+          "title": "CNN Architecture Pattern",
+          "type": "must_know",
+          "difficulty": "medium",
+          "content": "Standard CNN: [Conv → BN → ReLU → Pool] × N → Flatten → [Dense → ReLU] × M → Softmax. Early layers detect edges/textures, middle layers detect parts, deep layers detect objects.",
+          "tags": ["cnn architecture", "feature hierarchy"]
+        },
+        {
+          "card_id": "dl_04_c04",
+          "title": "Famous CNN Architectures",
+          "type": "interview_question",
+          "difficulty": "hard",
+          "content": "LeNet-5 (1998): first CNN for digits. AlexNet (2012): 8 layers, ImageNet breakthrough. VGG (2014): very deep, small 3×3 kernels. ResNet (2015): skip connections, 152 layers. EfficientNet (2019): compound scaling.",
+          "tags": ["alexnet", "resnet", "vgg", "interview"]
+        },
+        {
+          "card_id": "dl_04_c05",
+          "title": "Transfer Learning",
+          "type": "must_know",
+          "difficulty": "medium",
+          "content": "Use a pretrained CNN (e.g., ResNet trained on ImageNet) and fine-tune for your task. Freeze early layers (general features), retrain later layers (task-specific). Works well with small datasets.",
+          "tags": ["transfer learning", "fine-tuning", "pretrained"]
+        }
+      ],
+      "mcqs": [
+        {
+          "mcq_id": "dl_04_m01",
+          "question": "A Conv2D layer with kernel 3×3, input 28×28×1, 32 filters, stride 1, no padding — output shape?",
+          "options": ["28×28×32", "26×26×32", "14×14×32", "26×26×1"],
+          "correct_index": 1,
+          "explanation": "Output = (28 - 3 + 0) / 1 + 1 = 26. With 32 filters, output is 26×26×32. Each filter produces one feature map. Padding='same' would keep it at 28×28.",
+          "difficulty": "hard",
+          "tags": ["convolution", "output shape"]
+        },
+        {
+          "mcq_id": "dl_04_m02",
+          "question": "What key innovation did ResNet introduce to enable training very deep networks?",
+          "options": ["Larger kernels", "Skip (residual) connections", "Depthwise separable convolutions", "Global average pooling"],
+          "correct_index": 1,
+          "explanation": "Skip connections allow the gradient to flow directly through the identity mapping, bypassing layers. This prevents vanishing gradients and lets networks with 100+ layers train effectively.",
+          "difficulty": "medium",
+          "tags": ["resnet", "skip connections"]
+        },
+        {
+          "mcq_id": "dl_04_m03",
+          "question": "In transfer learning, which layers are typically frozen?",
+          "options": ["The final classification layers", "The early convolutional layers that detect general features", "All layers", "The middle layers only"],
+          "correct_index": 1,
+          "explanation": "Early CNN layers detect universal features (edges, textures, patterns). These transfer across domains. The later layers, detecting task-specific patterns, are retrained for the new task.",
+          "difficulty": "medium",
+          "tags": ["transfer learning", "fine-tuning"]
+        }
+      ]
+    },
+    {
+      "topic_id": "dl_05",
+      "name": "Recurrent Neural Networks (RNN/LSTM/GRU)",
+      "category": "architectures",
+      "order": 5,
+      "estimated_minutes": 60,
+      "cards": [
+        {
+          "card_id": "dl_05_c01",
+          "title": "RNN Basics",
+          "type": "basics",
+          "difficulty": "medium",
+          "content": "RNN processes sequences by maintaining hidden state: hₜ = tanh(Wₓxₜ + Wₕhₜ₋₁ + b). Same weights used at every step. Problem: vanishing gradient over long sequences (forgets early inputs).",
+          "tags": ["rnn", "hidden state", "sequence"]
+        },
+        {
+          "card_id": "dl_05_c02",
+          "title": "LSTM — Long Short-Term Memory",
+          "type": "must_know",
+          "difficulty": "hard",
+          "content": "Adds cell state (long-term memory) + 3 gates: Forget gate (what to erase), Input gate (what to write), Output gate (what to read). Gates use sigmoid (0=block, 1=pass). Solves vanishing gradient.",
+          "tags": ["lstm", "gates", "cell state"]
+        },
+        {
+          "card_id": "dl_05_c03",
+          "title": "GRU — Gated Recurrent Unit",
+          "type": "must_know",
+          "difficulty": "hard",
+          "content": "Simpler than LSTM: only 2 gates (Reset, Update). No separate cell state. Often performs similarly to LSTM with fewer parameters. Reset gate: how much past to forget. Update gate: how much new info to keep.",
+          "tags": ["gru", "gates"]
+        },
+        {
+          "card_id": "dl_05_c04",
+          "title": "Seq2Seq & Attention (Pre-Transformer)",
+          "type": "interview_question",
+          "difficulty": "hard",
+          "content": "Encoder RNN reads input sequence → context vector. Decoder RNN generates output. Problem: fixed-size context vector bottleneck. Bahdanau attention (2014) solved this — decoder attends to all encoder states, the precursor to transformers.",
+          "tags": ["seq2seq", "encoder decoder", "attention", "interview"]
+        }
+      ],
+      "mcqs": [
+        {
+          "mcq_id": "dl_05_m01",
+          "question": "The primary problem that LSTM solves compared to vanilla RNN is:",
+          "options": ["Slower training speed", "Inability to handle variable-length sequences", "Vanishing gradient over long sequences", "Lack of parallelism"],
+          "correct_index": 2,
+          "explanation": "Vanilla RNNs struggle to propagate gradients over long time steps — early inputs are effectively forgotten. LSTM's cell state and gating mechanism allow gradients to flow over long distances.",
+          "difficulty": "medium",
+          "tags": ["lstm", "vanishing gradient"]
+        },
+        {
+          "mcq_id": "dl_05_m02",
+          "question": "GRU has fewer parameters than LSTM because:",
+          "options": ["It uses smaller weight matrices", "It has 2 gates instead of 3, and no separate cell state", "It processes sequences in reverse", "It uses ReLU instead of sigmoid"],
+          "correct_index": 1,
+          "explanation": "LSTM: 3 gates + cell state = 4 weight matrices per layer. GRU: 2 gates, hidden state doubles as cell state = 3 weight matrices. ~25% fewer parameters, similar performance on many tasks.",
+          "difficulty": "hard",
+          "tags": ["gru", "lstm", "parameters"]
+        }
+      ]
+    },
+    {
+      "topic_id": "dl_06",
+      "name": "Transformers & Attention",
+      "category": "architectures",
+      "order": 6,
+      "estimated_minutes": 90,
+      "cards": [
+        {
+          "card_id": "dl_06_c01",
+          "title": "Self-Attention Mechanism",
+          "type": "must_know",
+          "difficulty": "hard",
+          "content": "Each token attends to all others. Q=query, K=key, V=value (all linear projections of input). Attention(Q,K,V) = softmax(QKᵀ/√dₖ)V. The √dₖ scaling prevents dot products from growing too large.",
+          "tags": ["self-attention", "q k v", "transformer"]
+        },
+        {
+          "card_id": "dl_06_c02",
+          "title": "Multi-Head Attention",
+          "type": "must_know",
+          "difficulty": "hard",
+          "content": "Run attention h times in parallel with different learned projections. Each head can attend to different aspects (syntax, semantics, position). Outputs are concatenated and projected. 'Attention is All You Need' (Vaswani et al., 2017).",
+          "tags": ["multi-head attention", "transformer"]
+        },
+        {
+          "card_id": "dl_06_c03",
+          "title": "Positional Encoding",
+          "type": "must_know",
+          "difficulty": "medium",
+          "content": "Transformers have no recurrence — position info must be injected. Sinusoidal encoding: PE(pos,2i) = sin(pos/10000^(2i/d)). Learned positional embeddings are also common (BERT uses these).",
+          "tags": ["positional encoding", "transformer"]
+        },
+        {
+          "card_id": "dl_06_c04",
+          "title": "BERT vs GPT Architecture",
+          "type": "interview_question",
+          "difficulty": "hard",
+          "content": "BERT: encoder-only, bidirectional (sees full context). Pretrained with masked LM + next sentence prediction. Good for: classification, NER, QA. GPT: decoder-only, autoregressive (left-to-right only). Good for: text generation.",
+          "tags": ["bert", "gpt", "interview", "llm"]
+        },
+        {
+          "card_id": "dl_06_c05",
+          "title": "Transformer Architecture Overview",
+          "type": "must_know",
+          "difficulty": "hard",
+          "content": "Encoder block: Multi-head attention → Add & Norm → FFN → Add & Norm. Decoder block: Masked MHA → Add & Norm → Cross-attention → Add & Norm → FFN → Add & Norm. Feed-forward: two linear layers with ReLU.",
+          "tags": ["transformer", "encoder", "decoder"]
+        }
+      ],
+      "mcqs": [
+        {
+          "mcq_id": "dl_06_m01",
+          "question": "Why is attention score divided by √dₖ in the transformer?",
+          "options": ["To normalize the output between 0 and 1", "To prevent dot products from growing large and pushing softmax into saturation", "To match the scale of the value vectors", "It's a historical convention with no mathematical reason"],
+          "correct_index": 1,
+          "explanation": "As dₖ grows, dot products grow proportionally, pushing softmax into regions with tiny gradients. Dividing by √dₖ keeps variance at 1 regardless of dimension size, maintaining healthy gradients.",
+          "difficulty": "hard",
+          "tags": ["attention", "scaling"]
+        },
+        {
+          "mcq_id": "dl_06_m02",
+          "question": "The key difference between BERT and GPT architecture is:",
+          "options": ["BERT uses CNN, GPT uses RNN", "BERT is bidirectional encoder, GPT is unidirectional decoder", "BERT generates text, GPT classifies", "BERT has more layers than GPT"],
+          "correct_index": 1,
+          "explanation": "BERT reads the full sequence in both directions (encoder). GPT generates tokens left-to-right, seeing only past tokens (decoder). This makes BERT better for understanding tasks and GPT for generation.",
+          "difficulty": "medium",
+          "tags": ["bert", "gpt", "llm"]
+        },
+        {
+          "mcq_id": "dl_06_m03",
+          "question": "Multi-head attention with h=8 heads and d_model=512 means each head operates on dimension:",
+          "options": ["512", "4096", "64", "8"],
+          "correct_index": 2,
+          "explanation": "Each head uses d_k = d_model / h = 512/8 = 64. This keeps total computation similar to single-head attention with full dimension, while allowing 8 heads to attend to different representation subspaces.",
+          "difficulty": "hard",
+          "tags": ["multi-head attention", "dimensions"]
+        }
+      ]
+    },
+    {
+      "topic_id": "dl_07",
+      "name": "Generative Models",
+      "category": "advanced",
+      "order": 7,
+      "estimated_minutes": 60,
+      "cards": [
+        {
+          "card_id": "dl_07_c01",
+          "title": "Autoencoders",
+          "type": "basics",
+          "difficulty": "medium",
+          "content": "Encoder compresses input → latent vector z (bottleneck). Decoder reconstructs input from z. Loss = reconstruction error. Used for: dimensionality reduction, denoising, anomaly detection.",
+          "tags": ["autoencoder", "latent space", "compression"]
+        },
+        {
+          "card_id": "dl_07_c02",
+          "title": "VAE — Variational Autoencoder",
+          "type": "must_know",
+          "difficulty": "hard",
+          "content": "Encodes input as distribution N(μ, σ²) instead of fixed point. Samples z from this distribution. Loss = reconstruction loss + KL divergence (forces latent space to be smooth). Enables controlled generation.",
+          "tags": ["vae", "variational", "kl divergence"]
+        },
+        {
+          "card_id": "dl_07_c03",
+          "title": "GAN — Generative Adversarial Network",
+          "type": "must_know",
+          "difficulty": "hard",
+          "content": "Generator G creates fake samples from noise. Discriminator D classifies real vs fake. G tries to fool D; D tries to catch G. Minimax game: min_G max_D [log D(x) + log(1 - D(G(z)))]. Training is notoriously unstable.",
+          "tags": ["gan", "generator", "discriminator"]
+        },
+        {
+          "card_id": "dl_07_c04",
+          "title": "Diffusion Models",
+          "type": "interview_question",
+          "difficulty": "hard",
+          "content": "Forward process: gradually add Gaussian noise to data over T steps until pure noise. Reverse process: train a UNet to predict and remove noise step by step. Stable Diffusion, DALL-E 3, Midjourney all use this.",
+          "tags": ["diffusion", "stable diffusion", "interview"]
+        }
+      ],
+      "mcqs": [
+        {
+          "mcq_id": "dl_07_m01",
+          "question": "What additional loss term does a VAE have compared to a standard autoencoder?",
+          "options": ["Adversarial loss from a discriminator", "KL divergence to regularize the latent space", "Perceptual loss from a pretrained network", "Contrastive loss between positive/negative pairs"],
+          "correct_index": 1,
+          "explanation": "KL divergence pushes the learned latent distribution toward a standard normal N(0,1). Without it, the latent space could collapse — nearby z values would generate very different outputs, breaking smooth generation.",
+          "difficulty": "hard",
+          "tags": ["vae", "kl divergence"]
+        },
+        {
+          "mcq_id": "dl_07_m02",
+          "question": "The main training instability problem in GANs is called:",
+          "options": ["Vanishing generator gradient", "Mode collapse", "Overfitting discriminator", "All of the above"],
+          "correct_index": 3,
+          "explanation": "GANs suffer from mode collapse (G generates only a few types of samples), vanishing gradients (when D becomes too good), and training oscillation. Wasserstein GAN and gradient penalty were developed to address these.",
+          "difficulty": "hard",
+          "tags": ["gan", "mode collapse", "training"]
+        }
+      ]
+    },
+    {
+      "topic_id": "dl_08",
+      "name": "Production ML & MLOps Basics",
+      "category": "practical",
+      "order": 8,
+      "estimated_minutes": 45,
+      "cards": [
+        {
+          "card_id": "dl_08_c01",
+          "title": "Bias-Variance Tradeoff",
+          "type": "must_know",
+          "difficulty": "medium",
+          "content": "Bias = error from wrong assumptions (underfitting). Variance = error from sensitivity to training data (overfitting). Total error = Bias² + Variance + Irreducible noise. Goal: find the sweet spot.",
+          "tags": ["bias variance", "underfitting", "overfitting"]
+        },
+        {
+          "card_id": "dl_08_c02",
+          "title": "Evaluation Metrics",
+          "type": "formula",
+          "difficulty": "medium",
+          "content": "Accuracy = (TP+TN)/Total. Precision = TP/(TP+FP). Recall = TP/(TP+FN). F1 = 2×P×R/(P+R). ROC-AUC = area under ROC curve. Use F1/AUC for imbalanced datasets, not accuracy.",
+          "tags": ["precision", "recall", "f1", "roc", "auc"]
+        },
+        {
+          "card_id": "dl_08_c03",
+          "title": "Model Serving & Inference",
+          "type": "interview_question",
+          "difficulty": "hard",
+          "content": "Options: REST API (FastAPI/Flask), gRPC (lower latency), ONNX (cross-framework), TorchServe/TF Serving (production-grade). Optimize with: quantization (INT8), pruning, knowledge distillation, TensorRT.",
+          "tags": ["deployment", "inference", "quantization", "interview"]
+        }
+      ],
+      "mcqs": [
+        {
+          "mcq_id": "dl_08_m01",
+          "question": "Your model has 99% accuracy on a dataset where 99% of samples are class 0. This model is:",
+          "options": ["Excellent", "Likely predicting class 0 for everything", "Overfitted", "Perfectly calibrated"],
+          "correct_index": 1,
+          "explanation": "This is the class imbalance trap. A model that always predicts the majority class gets 99% accuracy without learning anything. Always check precision, recall, and F1 for imbalanced datasets.",
+          "difficulty": "medium",
+          "tags": ["evaluation", "imbalanced", "accuracy"]
+        },
+        {
+          "mcq_id": "dl_08_m02",
+          "question": "Quantization in model deployment refers to:",
+          "options": ["Reducing the number of layers", "Converting float32 weights to lower precision (e.g., INT8) to reduce size and increase speed", "Splitting the model across multiple GPUs", "Pruning low-importance neurons"],
+          "correct_index": 1,
+          "explanation": "Quantization converts 32-bit floats to 8-bit integers. Model size drops 4x, inference speed increases significantly, with minimal accuracy loss. Widely used for mobile and edge deployment.",
+          "difficulty": "medium",
+          "tags": ["quantization", "deployment", "optimization"]
+        }
+      ]
+    }
+  ]
+}
