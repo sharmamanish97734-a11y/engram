@@ -8,14 +8,41 @@ const useStore = (store, selector) => {
 
 // --- GLOBAL DESTRUCTURING ---
 const { useState, useEffect, useMemo, useCallback, useSyncExternalStore } = React;
-const { HashRouter, Routes, Route, Link, useNavigate, useLocation, useParams } = ReactRouterDOM;
+
+// --- SIMPLE HASH ROUTER (no external dependency) ---
+const routerStore = window.createStore((set) => ({
+  path: window.location.hash.slice(1) || '/',
+}));
+
+const useNavigate = () => {
+  return (path) => {
+    window.location.hash = path;
+    routerStore.setState({ path });
+  };
+};
+
+const useParams = () => {
+  const path = useStore(routerStore, s => s.path);
+  // Simple param extraction from path like /learn/123 -> {id: '123'}
+  const match = path.match(/^\/(\w+)\/(.+)$/);
+  return match ? { id: match[2] } : {};
+};
+
+const useRouterPath = () => useStore(routerStore, s => s.path);
+
+// Simple icon fallback system
+const iconMap = {
+  'home': '🏠', 'book-open': '📖', 'play': '▶️', 'trophy': '🏆', 'log-out': '🚪',
+  'flame': '🔥', 'zap': '⚡', 'book': '📚', 'check-circle': '✅', 'clock': '⏱️',
+  'clock-3': '🕐', 'arrow-down-left': '↙️', 'arrow-up-right': '↗️', 'x-circle': '❌',
+  'arrow-left': '⬅️', 'x': '❌', 'rotate-cw': '🔄'
+};
+
+const Icon = ({ name, className = "inline-block w-5 h-5", style }) => {
+  return <span className={className} style={style}>{iconMap[name] || '•'}</span>;
+}
 
 const API_BASE = "http://localhost:8000";
-
-// Make lucide icons work
-const Icon = ({ name, className = "inline-block w-5 h-5", style }) => {
-  return <i data-lucide={name} className={className} style={style}></i>;
-}
 
 // --- API CLIENT ---
 const api = axios.create({ baseURL: API_BASE });
@@ -26,7 +53,7 @@ api.interceptors.request.use(config => {
 });
 
 // --- AUTH STORE (replaces Zustand) ---
-const authStore = createStore((set, get) => ({
+const authStore = window.createStore((set, get) => ({
   user: null,
   token: localStorage.getItem('token'),
   login: (user, token) => {
@@ -164,11 +191,6 @@ const Layout = ({ children }) => {
     api.get('/auth/me').then(res => authStore.getState().setUser(res.data)).catch(() => { logout(); navigate('/'); });
   }, []);
 
-  // Optimization: Run lucide only when children change (e.g. navigation)
-  useEffect(() => {
-    if (window.lucide) window.lucide.createIcons();
-  });
-
   return (
     <div className="min-h-screen flex flex-col max-w-md mx-auto relative overflow-hidden bg-[#0A0A0F]">
       {/* Header */}
@@ -287,8 +309,7 @@ const Topics = () => {
 }
 
 // 6. Learn Mode (Flashcards)
-const Learn = () => {
-    const { id } = useParams();
+const Learn = ({ id }) => {
     const navigate = useNavigate();
     const [currentIndex, setCurrentIndex] = useState(0);
     const [flipped, setFlipped] = useState(false);
@@ -349,8 +370,7 @@ const Learn = () => {
 };
 
 // 7. Quiz Mode (MCQ)
-const Quiz = () => {
-   const { id } = useParams();
+const Quiz = ({ id }) => {
    const navigate = useNavigate();
    
    const endpoint = id && id !== 'random' ? `/topics/${id}/mcqs` : `/mcq/random`;
@@ -504,23 +524,46 @@ const Leaderboard = () => {
 // APP ROUTER
 const App = () => {
   const token = useAuthStore(s => s.token);
-  const Protected = ({ children }) => token ? children : <Login />;
+  const path = useRouterPath();
   
-  return (
-    <HashRouter>
-      <Routes>
-         <Route path="/" element={token ? <Home /> : <Splash />} />
-         <Route path="/login" element={<Login />} />
-         <Route path="/home" element={<Protected><Home /></Protected>} />
-         <Route path="/topics" element={<Protected><Topics /></Protected>} />
-         <Route path="/learn/:id" element={<Protected><Learn /></Protected>} />
-         <Route path="/quiz/:id" element={<Protected><Quiz /></Protected>} />
-         <Route path="/wallet" element={<Protected><Wallet /></Protected>} />
-         <Route path="/leaderboard" element={<Protected><Leaderboard /></Protected>} />
-      </Routes>
-    </HashRouter>
-  )
-}
+  // Watch hash changes
+  useEffect(() => {
+    const handleHashChange = () => {
+      const newPath = window.location.hash.slice(1) || '/';
+      routerStore.setState({ path: newPath });
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+  
+  // Route matching
+  const renderPage = () => {
+    if (path === '/' || path === '') {
+      return token ? <Home /> : <Splash />;
+    }
+    if (path === '/login') return <Login />;
+    if (!token && !['/'].includes(path)) return <Login />;
+    
+    // Protected routes
+    if (path === '/home') return <Home />;
+    if (path === '/topics') return <Topics />;
+    if (path.startsWith('/learn/')) {
+      const id = path.split('/')[2];
+      return <Learn id={id} />;
+    }
+    if (path.startsWith('/quiz/')) {
+      const id = path.split('/')[2];
+      return <Quiz id={id} />;
+    }
+    if (path === '/wallet') return <Wallet />;
+    if (path === '/leaderboard') return <Leaderboard />;
+    
+    return <Splash />; // default
+  };
+  
+  return renderPage();
+};
 
+// Initialize app
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);

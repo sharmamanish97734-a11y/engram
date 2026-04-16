@@ -55,6 +55,20 @@ python -m http.server 5173
 
 ---
 
+## Test User Credentials
+
+A test user is pre-seeded in the database for easy login:
+
+```
+Email: test@example.com
+Password: password123
+Initial Wallet: ₹100
+```
+
+To create additional test users, sign up from the "Need an account? Sign Up" link on the login page.
+
+---
+
 ## Project Structure
 ```text
 engram/
