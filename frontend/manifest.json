@@ -1,14 +1,20 @@
 {
-  "name": "Engram PWA",
+  "name": "Engram",
   "short_name": "Engram",
-  "description": "Adaptive learning PWA with loss-aversion wallet mechanics",
-  "start_url": "/#/",
+  "description": "Engram - Your personal learning and memory companion.",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#0A0A0F",
-  "theme_color": "#6366F1",
+  "background_color": "#ffffff",
+  "theme_color": "#1a1a2e",
   "icons": [
     {
-      "src": "icon.png",
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

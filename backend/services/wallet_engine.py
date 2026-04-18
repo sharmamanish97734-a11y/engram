@@ -9,7 +9,6 @@ REWARDS = {
     "perfect_answer": 2.0,
     "streak_7_day": 5.0,
     "streak_30_day": 20.0,
-    "app_install": 5.0,
     "card_easy": 0.5,
     "card_good": 0.25,
 }
@@ -17,9 +16,6 @@ REWARDS = {
 PENALTIES = {
     "wrong_answer": -2.0,
     "skip": -2.0,
-    "inactivity_30min": -2.0,
-    "inactivity_1hr": -5.0,
-    "inactivity_3hr": -10.0,
 }
 
 
@@ -94,13 +90,9 @@ def _label(event: str, amount: float) -> str:
         "perfect_answer": f"Perfect answer! {sign}₹{abs(amount):.0f}",
         "streak_7_day": f"7-day streak bonus +₹{abs(amount):.0f}",
         "streak_30_day": f"30-day streak bonus +₹{abs(amount):.0f}",
-        "app_install": f"App install bonus +₹{abs(amount):.0f}",
         "card_easy": f"Card rated Easy +₹{abs(amount):.1f}",
         "card_good": f"Card rated Good +₹{abs(amount):.2f}",
         "wrong_answer": f"Wrong answer -₹{abs(amount):.0f}",
         "skip": f"Question skipped -₹{abs(amount):.0f}",
-        "inactivity_30min": f"Inactivity penalty -₹{abs(amount):.0f}",
-        "inactivity_1hr": f"Inactivity penalty -₹{abs(amount):.0f}",
-        "inactivity_3hr": f"Long inactivity penalty -₹{abs(amount):.0f}",
     }
     return labels.get(event, f"Transaction {sign}₹{abs(amount):.2f}")

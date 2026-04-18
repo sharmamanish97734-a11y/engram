@@ -35,14 +35,16 @@ const iconMap = {
   'home': '🏠', 'book-open': '📖', 'play': '▶️', 'trophy': '🏆', 'log-out': '🚪',
   'flame': '🔥', 'zap': '⚡', 'book': '📚', 'check-circle': '✅', 'clock': '⏱️',
   'clock-3': '🕐', 'arrow-down-left': '↙️', 'arrow-up-right': '↗️', 'x-circle': '❌',
-  'arrow-left': '⬅️', 'x': '❌', 'rotate-cw': '🔄'
+  'arrow-left': '⬅️', 'x': '❌', 'rotate-cw': '🔄', 'brain': '🧠', 'wand': '🪄', 'sparkles': '✨', 'lightbulb': '💡'
 };
 
 const Icon = ({ name, className = "inline-block w-5 h-5", style }) => {
   return <span className={className} style={style}>{iconMap[name] || '•'}</span>;
 }
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '0.0.0.0'
+  ? "http://localhost:8000"
+  : "https://your-app.onrender.com";
 
 // --- API CLIENT ---
 const api = axios.create({ baseURL: API_BASE });
@@ -69,6 +71,12 @@ const authStore = window.createStore((set, get) => ({
 
 // Convenience hooks
 const useAuthStore = (selector) => useStore(authStore, selector || (s => s));
+
+const syncCurrentUser = () =>
+  api.get('/auth/me').then(res => {
+    authStore.getState().setUser(res.data);
+    return res.data;
+  });
 
 // --- SIMPLE DATA FETCHING HOOK (replaces React Query) ---
 const useQuery = ({ queryKey, queryFn, enabled = true }) => {
@@ -102,15 +110,39 @@ const Card = ({ children, className = "" }) => (
   </div>
 );
 
-const Button = ({ children, onClick, variant = 'primary', className = "", type = "button" }) => {
-  const base = "w-full py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]";
+const Skeleton = ({ className = "" }) => (
+  <div className={`animate-pulse bg-gray-800 rounded-lg ${className}`}></div>
+);
+
+const Modal = ({ isOpen, onClose, title, children }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0A0A0F]/90 backdrop-blur-sm">
+      <Card className="w-full max-w-sm border-primary/20 shadow-2xl flex flex-col max-h-[85vh]">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold text-white flex items-center gap-2">
+            <Icon name="sparkles" className="text-primary w-5 h-5" /> {title}
+          </h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-white p-1"><Icon name="x" /></button>
+        </div>
+        <div className="overflow-y-auto custom-scrollbar flex-1">
+          {children}
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+
+const Button = ({ children, onClick, variant = 'primary', className = "", type = "button", disabled = false }) => {
+  const base = "w-full py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100";
   const variants = {
     primary: "bg-gradient-to-r from-primary to-primaryFocus text-white shadow-lg shadow-primary/25",
     secondary: "bg-gray-800 text-white hover:bg-gray-700",
     danger: "bg-danger text-white shadow-lg shadow-danger/25",
     success: "bg-success text-white shadow-lg shadow-success/25"
   };
-  return <button type={type} onClick={onClick} className={`${base} ${variants[variant]} ${className}`}>{children}</button>;
+  return <button type={type} onClick={onClick} disabled={disabled} className={`${base} ${variants[variant]} ${className}`}>{children}</button>;
 };
 
 // --- PAGES ---
@@ -127,7 +159,7 @@ const Splash = () => {
       <p className="text-gray-400 text-center mb-12 max-w-sm text-lg">Master difficult concepts. Get rewarded for learning.</p>
       
       <div className="w-full max-w-sm space-y-4">
-        <Button onClick={() => navigate('/login')}>Login & Start Learning</Button>
+        <Button onClick={() => navigate('/home')}>Start Learning</Button>
       </div>
     </div>
   );
@@ -188,7 +220,7 @@ const Layout = ({ children }) => {
   const navigate = useNavigate();
   // Fetch user data directly
   useEffect(() => {
-    api.get('/auth/me').then(res => authStore.getState().setUser(res.data)).catch(() => { logout(); navigate('/'); });
+    syncCurrentUser().catch(() => { logout(); navigate('/'); });
   }, []);
 
   return (
@@ -221,9 +253,6 @@ const Layout = ({ children }) => {
         <button className="flex flex-col items-center text-gray-400 border border-gray-700 bg-[#0A0A0F] rounded-full p-2 -mt-6 shadow-xl hover:text-primary transition-colors" onClick={() => navigate('/quiz/random')}>
           <Icon name="play" /><span className="text-[10px] mt-1">Quiz</span>
         </button>
-        <button className="flex flex-col items-center text-gray-400 hover:text-primary transition-colors" onClick={() => navigate('/leaderboard')}>
-          <Icon name="trophy" /><span className="text-[10px] mt-1">Leaders</span>
-        </button>
         <button className="flex flex-col items-center text-gray-400 hover:text-primary transition-colors" onClick={() => { logout(); navigate('/'); }}>
           <Icon name="log-out" /><span className="text-[10px] mt-1">Logout</span>
         </button>
@@ -236,6 +265,24 @@ const Layout = ({ children }) => {
 const Home = () => {
   const user = useAuthStore(s => s.user);
   const navigate = useNavigate();
+  const [analysis, setAnalysis] = useState(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+
+  const runAnalysis = async () => {
+    if (!user) return;
+    setIsAnalyzing(true);
+    setShowModal(true);
+    setAnalysis(null);
+    try {
+      const res = await api.post('/ai/analyze', { user_id: user.id });
+      setAnalysis(res.data);
+    } catch (err) {
+      setAnalysis({ error: "AI assistant is currently offline. Please try again later." });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   return (
     <Layout>
@@ -267,6 +314,79 @@ const Home = () => {
                <p className="text-xs text-gray-400">Earn ₹ Wallet</p>
             </div>
          </div>
+
+         {/* AI Analysis Trigger */}
+         <div onClick={runAnalysis} className="mt-8 bg-surface border border-primary/20 rounded-2xl p-5 hover:border-primary transition-all cursor-pointer flex items-center gap-4 group">
+            <div className="bg-primary/20 text-primary w-12 h-12 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-primary/10">
+               <Icon name="brain" className="w-6 h-6" />
+            </div>
+            <div className="flex-1">
+               <div className="flex items-center gap-2">
+                 <h3 className="font-bold text-white leading-none">AI Insight Analysis</h3>
+                 <span className="text-[8px] bg-primary text-white px-1.5 py-0.5 rounded-full font-black uppercase">Beta</span>
+               </div>
+               <p className="text-xs text-gray-400 mt-1">Personalized strategy based on your history</p>
+            </div>
+            <Icon name="sparkles" className="text-primary opacity-40 group-hover:opacity-100 transition-opacity" />
+         </div>
+
+         <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Study Analysis">
+           {isAnalyzing ? (
+             <div className="space-y-6 p-2 py-4">
+               <div>
+                 <Skeleton className="h-3 w-20 mb-3" />
+                 <div className="flex gap-2"><Skeleton className="h-8 w-24" /><Skeleton className="h-8 w-20" /></div>
+               </div>
+               <div>
+                 <Skeleton className="h-3 w-32 mb-3" />
+                 <Skeleton className="h-24 w-full" />
+               </div>
+               <div>
+                 <Skeleton className="h-3 w-24 mb-3" />
+                 <Skeleton className="h-20 w-full" />
+               </div>
+             </div>
+           ) : analysis?.error ? (
+             <div className="text-rose-400 p-8 text-center text-sm font-medium flex flex-col items-center gap-3">
+                <Icon name="x-circle" className="w-10 h-10 opacity-40" />
+                {analysis.error}
+             </div>
+           ) : (
+             <div className="space-y-6 text-sm leading-relaxed p-1 py-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+               <section>
+                 <h4 className="text-primary font-black uppercase tracking-wider text-[10px] mb-3 flex items-center gap-2">
+                    <Icon name="lightbulb" className="w-3.5 h-3.5" /> Weak Topics
+                 </h4>
+                 <div className="flex flex-wrap gap-2">
+                   {analysis?.weak_topics?.map(t => (
+                     <span key={t} className="bg-rose-500/10 text-rose-400 px-2.5 py-1 rounded-lg border border-rose-500/20 text-[11px] font-bold">{t}</span>
+                   )) || <span className="text-gray-500 italic">No patterns detected yet</span>}
+                 </div>
+               </section>
+               <section>
+                 <h4 className="text-primary font-black uppercase tracking-wider text-[10px] mb-3 flex items-center gap-2">
+                    <Icon name="brain" className="w-3.5 h-3.5" /> Concept Breakdown
+                 </h4>
+                 <p className="text-gray-300 bg-[#0A0A0F]/50 p-4 rounded-2xl border border-gray-800 text-[13px] leading-[1.6]">
+                   {analysis?.suggested_focus}
+                 </p>
+               </section>
+               <section>
+                 <h4 className="text-primary font-black uppercase tracking-wider text-[10px] mb-3 flex items-center gap-2">
+                    <Icon name="wand" className="w-3.5 h-3.5" /> Action Plan
+                 </h4>
+                 <ul className="space-y-3">
+                   {analysis?.recommended_next_steps?.map((s, i) => (
+                     <li key={i} className="flex gap-3 text-gray-400 text-[13px]">
+                        <span className="text-primary font-bold">0{i+1}.</span> {s}
+                     </li>
+                   ))}
+                 </ul>
+               </section>
+               <Button onClick={() => setShowModal(false)} variant="secondary" className="mt-4 !py-2.5 !text-sm">Close Analysis</Button>
+             </div>
+           )}
+         </Modal>
        </div>
     </Layout>
   )
@@ -313,15 +433,33 @@ const Learn = ({ id }) => {
     const navigate = useNavigate();
     const [currentIndex, setCurrentIndex] = useState(0);
     const [flipped, setFlipped] = useState(false);
+    const [hint, setHint] = useState(null);
+    const [isHinting, setIsHinting] = useState(false);
     const { data: cards, isLoading } = useQuery({ queryKey: ['cards', id], queryFn: () => api.get(`/topics/${id}/cards`).then(r => r.data) });
+
+    const getHint = async (e) => {
+        e.stopPropagation();
+        if (hint) return;
+        setIsHinting(true);
+        try {
+            const card = cards[currentIndex];
+            const res = await api.post('/ai/hint', { question: card.title, options: [] });
+            setHint(res.data.hint);
+        } catch (err) {
+            setHint("AI hint is currently unavailable.");
+        } finally {
+            setIsHinting(false);
+        }
+    };
 
     const rateCard = async (rating) => {
         const card_id = cards[currentIndex].card_id;
         try {
             await api.post('/card/rate', { card_id, rating });
-            api.get('/auth/me').then(res => authStore.getState().setUser(res.data));
+            syncCurrentUser();
             if (currentIndex < cards.length - 1) {
                 setFlipped(false);
+                setHint(null);
                 setCurrentIndex(i => i + 1);
             } else {
                 navigate('/topics');
@@ -348,6 +486,22 @@ const Learn = ({ id }) => {
                     <div className="w-full h-full bg-gradient-to-br from-surface to-[#1A1A24] border border-primary/30 rounded-3xl p-6 flex flex-col justify-center text-center shadow-xl">
                          <div className="uppercase text-xs font-bold tracking-widest text-primary mb-4">{card.type}</div>
                          <h2 className="text-2xl font-bold text-white leading-snug">{card.title}</h2>
+                         
+                         {/* AI Hint Section */}
+                         <div className="mt-4 min-h-[40px] flex items-center justify-center">
+                            {!hint && !isHinting ? (
+                                <button onClick={getHint} className="text-[10px] font-bold text-primary/60 hover:text-primary transition-all flex items-center gap-1.5 mx-auto bg-primary/5 px-3 py-1.5 rounded-full border border-primary/10 hover:border-primary/30">
+                                    <Icon name="lightbulb" className="w-3 h-3" /> Get AI Hint
+                                </button>
+                            ) : isHinting ? (
+                                <Skeleton className="h-4 w-24 mx-auto" />
+                            ) : (
+                                <div className="text-[11px] text-gray-400 italic bg-[#0A0A0F]/50 p-2.5 px-4 rounded-xl border border-gray-800 animate-in fade-in slide-in-from-top-1 duration-300 mx-6">
+                                    {hint}
+                                </div>
+                            )}
+                         </div>
+
                          <div className="mt-8 text-sm text-gray-500 flex items-center justify-center gap-1"><Icon name="rotate-cw" /> Tap to flip</div>
                     </div>
                 ) : (
@@ -379,6 +533,8 @@ const Quiz = ({ id }) => {
    const [currentIndex, setCurrentIndex] = useState(0);
    const [selectedOption, setSelectedOption] = useState(null);
    const [result, setResult] = useState(null);
+   const [aiExplanation, setAiExplanation] = useState(null);
+   const [isExplaining, setIsExplaining] = useState(false);
 
    const submitAnswer = async (index) => {
        if (selectedOption !== null) return;
@@ -387,7 +543,24 @@ const Quiz = ({ id }) => {
        try {
            const res = await api.post('/answer', { mcq_id: mcq.mcq_id, selected_index: index });
            setResult(res.data);
-           api.get('/auth/me').then(info => authStore.getState().setUser(info.data));
+           syncCurrentUser();
+
+           // Trigger AI explanation
+           setIsExplaining(true);
+           setAiExplanation(null);
+           const options = JSON.parse(mcq.options);
+           api.post('/ai/explain', {
+               question: mcq.question,
+               correct_option: options[res.data.correct_index],
+               user_choice: options[index],
+               topic: id || "General"
+           }).then(aiRes => {
+               setAiExplanation(aiRes.data.explanation);
+           }).catch(() => {
+               setAiExplanation("AI tutor is currently unavailable for this question.");
+           }).finally(() => {
+               setIsExplaining(false);
+           });
        } catch (err) {
            console.error(err);
        }
@@ -396,6 +569,7 @@ const Quiz = ({ id }) => {
    const nextQuestion = () => {
        setSelectedOption(null);
        setResult(null);
+       setAiExplanation(null);
        if (currentIndex < mcqs.length - 1) {
            setCurrentIndex(i => i + 1);
        } else {
@@ -453,9 +627,29 @@ const Quiz = ({ id }) => {
                             {result.wallet_delta > 0 ? '+' : ''}₹{result.wallet_delta.toFixed(0)}
                         </div>
                     </div>
-                    <div className="text-gray-300 text-sm mb-6 leading-relaxed bg-[#0A0A0F]/50 p-4 rounded-xl border border-gray-800">
+                    <div className="text-gray-300 text-sm mb-4 leading-relaxed bg-[#0A0A0F]/50 p-4 rounded-xl border border-gray-800">
                         {result.explanation}
                     </div>
+
+                    {/* AI Deep Dive Section */}
+                    <div className="mb-6 border-t border-gray-800/50 pt-4">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Icon name="brain" className="text-primary w-3.5 h-3.5" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-primary">AI Deep Dive</span>
+                        </div>
+                        {isExplaining ? (
+                            <div className="space-y-2">
+                                <Skeleton className="h-3 w-full" />
+                                <Skeleton className="h-3 w-[90%]" />
+                                <Skeleton className="h-3 w-[70%]" />
+                            </div>
+                        ) : (
+                            <p className="text-[13px] text-gray-400 leading-relaxed italic animate-in fade-in duration-700">
+                                {aiExplanation}
+                            </p>
+                        )}
+                    </div>
+
                     <Button onClick={nextQuestion} variant={result.correct ? 'success' : 'danger'}>Next Question</Button>
                 </div>
             )}
@@ -466,6 +660,7 @@ const Quiz = ({ id }) => {
 // 8. Wallet
 const Wallet = () => {
   const { data, isLoading } = useQuery({ queryKey: ['wallet'], queryFn: () => api.get('/wallet').then(r => r.data) });
+
   return (
     <Layout>
        <div className="bg-gradient-to-br from-green-900/40 to-green-900/10 border border-green-500/20 rounded-3xl p-8 mb-8 text-center mt-4">
@@ -497,30 +692,6 @@ const Wallet = () => {
   )
 }
 
-// 9. Leaderboard
-const Leaderboard = () => {
-  const { data, isLoading } = useQuery({ queryKey: ['leaders'], queryFn: () => api.get('/leaderboard').then(r => r.data) });
-  return (
-    <Layout>
-      <h2 className="text-2xl font-bold mb-6 mt-4">Top Global Learners</h2>
-      <div className="space-y-3">
-         {data?.map((u, i) => (
-           <div key={i} className="flex items-center justify-between p-4 bg-surface border border-gray-800 rounded-2xl">
-             <div className="flex items-center gap-4">
-               <div className="font-bold text-xl text-gray-500 w-6 text-center">{i + 1}</div>
-               <div>
-                 <div className="font-bold text-white">{u.username}</div>
-                 <div className="text-xs text-gray-500">{u.current_streak} day streak</div>
-               </div>
-             </div>
-             <div className="font-bold text-green-400 bg-green-500/10 px-3 py-1 rounded-lg">₹{u.wallet_balance.toFixed(0)}</div>
-           </div>
-         ))}
-      </div>
-    </Layout>
-  )
-}
-
 // APP ROUTER
 const App = () => {
   const token = useAuthStore(s => s.token);
@@ -535,14 +706,17 @@ const App = () => {
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
+
+  useEffect(() => {
+    syncCurrentUser().catch(() => {});
+  }, []);
   
   // Route matching
   const renderPage = () => {
     if (path === '/' || path === '') {
       return token ? <Home /> : <Splash />;
     }
-    if (path === '/login') return <Login />;
-    if (!token && !['/'].includes(path)) return <Login />;
+    if (path === '/login') return token ? <Home /> : <Login />;
     
     // Protected routes
     if (path === '/home') return <Home />;
@@ -556,7 +730,6 @@ const App = () => {
       return <Quiz id={id} />;
     }
     if (path === '/wallet') return <Wallet />;
-    if (path === '/leaderboard') return <Leaderboard />;
     
     return <Splash />; // default
   };

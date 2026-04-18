@@ -123,14 +123,26 @@ class WalletOut(BaseModel):
     balance: float
     transactions: List[WalletTransactionOut]
 
+# ─── AI ──────────────────────────────────────────────────────────────────────
 
-# ─── Leaderboard ─────────────────────────────────────────────────────────────
+class AIExplainRequest(BaseModel):
+    question: str
+    correct_option: str
+    user_choice: str
+    topic: str
 
-class LeaderboardEntry(BaseModel):
-    rank: int
-    username: str
-    wallet_balance: float
-    current_streak: int
+class AIHintRequest(BaseModel):
+    question: str
+    options: List[str]
 
-    class Config:
-        from_attributes = True
+class AIGenerateCardsRequest(BaseModel):
+    topic_id: str
+    topic_name: str
+
+class AIGenerateMCQRequest(BaseModel):
+    topic_id: str
+    topic_name: str
+    difficulty: str
+
+class AIAnalyzeRequest(BaseModel):
+    user_id: int

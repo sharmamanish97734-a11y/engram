@@ -2,7 +2,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
-from models import User, MCQ, Card
+from models import User, MCQ, Card, AnswerLog
 from schemas import AnswerSubmit, AnswerResult, CardRating, CardResult
 from services.auth import get_current_user
 from services import sm2, wallet_engine
@@ -26,6 +26,15 @@ def submit_answer(data: AnswerSubmit, db: Session = Depends(get_db), user: User 
     else:
         perf.wrong_count += 1
     sm2.update_sm2(perf, quality)
+    
+    # Log answer
+    log = AnswerLog(
+        user_id=user.id,
+        mcq_id=mcq.id,
+        topic_id=mcq.topic_id,
+        is_correct=correct
+    )
+    db.add(log)
 
     # Wallet
     streak_bonus = wallet_engine.update_streak(db, user)
@@ -65,6 +74,15 @@ def rate_card(data: CardRating, db: Session = Depends(get_db), user: User = Depe
     mapping = {0: 0, 1: 2, 2: 3, 3: 4}
     quality = mapping.get(data.rating, 3)
     sm2.update_sm2(perf, quality)
+
+    # Log card review (rating 0 contextually means "wrong/blackout")
+    log = AnswerLog(
+        user_id=user.id,
+        card_id=card.id,
+        topic_id=card.topic_id,
+        is_correct=(quality >= 2)
+    )
+    db.add(log)
 
     wallet_engine.update_streak(db, user)
     delta = 0.0
