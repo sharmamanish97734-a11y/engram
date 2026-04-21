@@ -125,10 +125,12 @@ Since your GitHub account is flagged, you can't use the standard "Connect to Git
    - `NETLIFY_SITE_ID`: (The ID from Step A2)
    - `RENDER_DEPLOY_HOOK`: (The URL from Step B)
    - `GROQ_API_KEY`: (Your Groq key for testing)
+   - `CLOUDFLARE_API_TOKEN`: (Your Cloudflare API token)
+   - `CLOUDFLARE_ACCOUNT_ID`: (Your Cloudflare Account ID)
 
----
-
-## 🛠️ Post-Deployment Verification
+### Step D: Get your Cloudflare Secrets
+1. **API Token:** Go to your **Cloudflare Dashboard** → **User Profile** → **API Tokens** → **Create Token** → **Edit Cloudflare Pages**.
+2. **Account ID:** Found in your **Workers & Pages** → **Overview** page on the right-hand sidebar.
 
 ### 1. Check API Health
 Visit `https://your-backend-url.onrender.com/health`. You should see `{"status": "ok"}`.
