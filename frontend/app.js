@@ -341,6 +341,40 @@ const Topics = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [subject, setSubject] = useState("");
   const [counts, setCounts] = useState({ subtopics: 5, cards: 8, mcqs: 5 });
+  
+  // Selection State
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (confirm(`Are you sure you want to delete ${selectedIds.length} items? This will remove all associated cards and progress.`)) {
+      try {
+        await api.post('/topics/delete-bulk', { topic_ids: selectedIds });
+        setSelectedIds([]);
+        setIsSelectionMode(false);
+        refetch();
+      } catch (err) {
+        alert("Failed to delete topics.");
+      }
+    }
+  };
+
+  const handleDeleteSingle = async (e, topic) => {
+    e.stopPropagation();
+    if (confirm(`Delete "${topic.name}" and all its content?`)) {
+      try {
+        await api.delete(`/topics/${topic.topic_id}`);
+        refetch();
+      } catch (err) {
+        alert("Failed to delete topic.");
+      }
+    }
+  };
 
   const handleGenerate = async () => {
     if (!subject) return;
@@ -389,8 +423,18 @@ const Topics = () => {
     <Layout>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Your Syllabus</h2>
-        <div className="text-xs text-gray-400 bg-surface px-3 py-1 rounded-full border border-gray-800">
-          {data?.length || 0} Topics
+        <div className="flex items-center gap-3">
+          {data?.length > 0 && (
+            <button 
+              onClick={() => { setIsSelectionMode(!isSelectionMode); setSelectedIds([]); }}
+              className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg border transition-all ${isSelectionMode ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-gray-800 text-gray-400 hover:text-white'}`}
+            >
+              {isSelectionMode ? 'Cancel' : 'Manage'}
+            </button>
+          )}
+          <div className="text-xs text-gray-400 bg-surface px-3 py-1 rounded-full border border-gray-800">
+            {data?.length || 0} Topics
+          </div>
         </div>
       </div>
 
@@ -417,10 +461,25 @@ const Topics = () => {
              return (
                <div key={syllabus.id} className="animate-in fade-in slide-in-from-bottom-2" style={{animationDelay: `${i*100}ms`}}>
                   <div className="flex justify-between items-end pb-3 mb-4 border-b border-gray-800">
-                    <div>
-                      <span className="text-[10px] uppercase font-black tracking-widest text-primary mb-1 border border-primary/20 bg-primary/10 px-2 py-0.5 rounded-full inline-block">Syllabus</span>
-                      <h2 className="text-xl font-bold text-white mt-1">{syllabus.name}</h2>
+                    <div className="flex items-center gap-3">
+                      {isSelectionMode && (
+                        <input 
+                          type="checkbox" 
+                          checked={selectedIds.includes(syllabus.topic_id)}
+                          onChange={() => toggleSelect(syllabus.topic_id)}
+                          className="w-5 h-5 rounded border-gray-800 bg-gray-900 text-primary focus:ring-primary"
+                        />
+                      )}
+                      <div>
+                        <span className="text-[10px] uppercase font-black tracking-widest text-primary mb-1 border border-primary/20 bg-primary/10 px-2 py-0.5 rounded-full inline-block">Syllabus</span>
+                        <h2 className="text-xl font-bold text-white mt-1">{syllabus.name}</h2>
+                      </div>
                     </div>
+                    {isSelectionMode && (
+                       <button onClick={(e) => handleDeleteSingle(e, syllabus)} className="text-rose-500/40 hover:text-rose-500 p-2 transition-colors">
+                         <Icon name="trash-2" className="w-5 h-5" />
+                       </button>
+                    )}
                   </div>
                   
                   {subtopics.length === 0 ? (
@@ -431,18 +490,31 @@ const Topics = () => {
                          const totalCards = topic.card_count + topic.mcq_count;
                          const learnedPercent = totalCards > 0 ? (topic.learned_count / totalCards) * 100 : 0;
                          const masteryColor = topic.mastery_percent > 80 ? 'text-emerald-400' : topic.mastery_percent > 40 ? 'text-blue-400' : 'text-gray-400';
-                         
+                         const isSelected = selectedIds.includes(topic.topic_id);
+
                          return (
-                           <div key={topic.id} className="bg-surface border border-gray-800 rounded-2xl p-5 transition-all hover:bg-[#13111C]/50">
+                           <div key={topic.id} 
+                             onClick={() => isSelectionMode && toggleSelect(topic.topic_id)}
+                             className={`bg-surface border rounded-2xl p-5 transition-all relative ${isSelected ? 'border-primary bg-primary/5 shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)]' : 'border-gray-800 hover:bg-[#13111C]/50'} ${isSelectionMode ? 'cursor-pointer' : ''}`}
+                           >
+                              {isSelectionMode && (
+                                <div className="absolute top-4 right-4 animate-in zoom-in duration-300">
+                                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-primary border-primary' : 'border-gray-700'}`}>
+                                    {isSelected && <Icon name="check-circle" className="text-white w-4 h-4" />}
+                                  </div>
+                                </div>
+                              )}
                               <div className="flex justify-between items-start mb-4">
                                 <div className="flex flex-col">
                                   <span className="text-[10px] uppercase font-black tracking-widest text-gray-500 mb-1">{topic.category || 'Topic'}</span>
                                   <h3 className="font-bold text-lg text-white leading-tight">{topic.name}</h3>
                                 </div>
-                                <div className="flex flex-col items-end">
-                                  <div className={`text-xl font-black ${masteryColor}`}>{topic.mastery_percent}%</div>
-                                  <div className="text-[8px] uppercase font-bold text-gray-500 tracking-tighter">Mastery</div>
-                                </div>
+                                {!isSelectionMode && (
+                                  <div className="flex flex-col items-end">
+                                    <div className={`text-xl font-black ${masteryColor}`}>{topic.mastery_percent}%</div>
+                                    <div className="text-[8px] uppercase font-bold text-gray-500 tracking-tighter">Mastery</div>
+                                  </div>
+                                )}
                               </div>
                               
                               {/* Progress Bar */}
@@ -489,6 +561,24 @@ const Topics = () => {
                </div>
              )
           })}
+        </div>
+      )}
+
+      {/* Floating Action Bar for Deletion */}
+      {isSelectionMode && selectedIds.length > 0 && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-full max-w-xs z-40 animate-in slide-in-from-bottom-10">
+          <div className="bg-[#1A1A24] border border-rose-500/30 rounded-2xl p-4 shadow-2xl backdrop-blur-xl flex items-center justify-between">
+             <div className="flex flex-col">
+               <span className="text-white font-bold">{selectedIds.length} Selected</span>
+               <span className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">Warning: Irreversible</span>
+             </div>
+             <button 
+               onClick={handleBulkDelete}
+               className="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-rose-500/20"
+             >
+               <Icon name="trash-2" className="w-4 h-4" /> Delete
+             </button>
+          </div>
         </div>
       )}
 

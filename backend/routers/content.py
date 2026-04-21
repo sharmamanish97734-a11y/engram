@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from database import get_db
 from models import Topic, Card, MCQ, User
-from schemas import TopicOut, CardOut, MCQOut, SyllabusGenerateRequest
+from schemas import TopicOut, CardOut, MCQOut, SyllabusGenerateRequest, BulkDeleteRequest
 import uuid
 import json
 
@@ -195,4 +195,30 @@ def generate_syllabus(data: SyllabusGenerateRequest, db: Session = Depends(get_d
             
     db.commit()
     return {"created_topic_ids": created_ids}
+
+
+@router.delete("/topics/{topic_id}")
+def delete_topic(topic_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    topic = db.query(Topic).filter(Topic.topic_id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    
+    # Check if user has permission (in single user mode this is implied, but good practice)
+    # Recursively delete children if any (cascade="all, delete-orphan" handles this if logic is right)
+    db.delete(topic)
+    db.commit()
+    return {"status": "success", "message": f"Topic {topic.name} deleted successfully."}
+
+
+@router.post("/topics/delete-bulk")
+def delete_topics_bulk(data: BulkDeleteRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    topics = db.query(Topic).filter(Topic.topic_id.in_(data.topic_ids)).all()
+    
+    count = 0
+    for t in topics:
+        db.delete(t)
+        count += 1
+        
+    db.commit()
+    return {"status": "success", "message": f"Deleted {count} topics successfully."}
 

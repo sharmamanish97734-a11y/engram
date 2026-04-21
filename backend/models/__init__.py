@@ -54,9 +54,9 @@ class Topic(Base):
     parent_id = Column(Integer, ForeignKey("topics.id"), nullable=True)
 
     # Relationships
-    cards = relationship("Card", back_populates="topic")
-    mcqs = relationship("MCQ", back_populates="topic")
-    subtopics = relationship("Topic", backref=backref("parent", remote_side=[id]))
+    cards = relationship("Card", back_populates="topic", cascade="all, delete-orphan")
+    mcqs = relationship("MCQ", back_populates="topic", cascade="all, delete-orphan")
+    subtopics = relationship("Topic", backref=backref("parent", remote_side=[id]), cascade="all, delete-orphan")
 
 
 class Card(Base):
@@ -64,7 +64,7 @@ class Card(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     card_id = Column(String(50), unique=True, index=True)
-    topic_id = Column(Integer, ForeignKey("topics.id"))
+    topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"))
     title = Column(String(255), nullable=False)
     type = Column(String(50))
     difficulty = Column(String(20), default="medium")
@@ -73,7 +73,7 @@ class Card(Base):
     source = Column(String(50), default='manual')
 
     topic = relationship("Topic", back_populates="cards")
-    performances = relationship("UserPerformance", back_populates="card")
+    performances = relationship("UserPerformance", back_populates="card", cascade="all, delete-orphan")
 
 
 class MCQ(Base):
@@ -81,7 +81,7 @@ class MCQ(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     mcq_id = Column(String(50), unique=True, index=True)
-    topic_id = Column(Integer, ForeignKey("topics.id"))
+    topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"))
     question = Column(Text, nullable=False)
     options = Column(Text, nullable=False)   # JSON array
     correct_index = Column(Integer, nullable=False)
@@ -91,7 +91,7 @@ class MCQ(Base):
     source = Column(String(50), default='manual')
 
     topic = relationship("Topic", back_populates="mcqs")
-    performances = relationship("UserPerformance", back_populates="mcq")
+    performances = relationship("UserPerformance", back_populates="mcq", cascade="all, delete-orphan")
 
 
 class UserPerformance(Base):
@@ -141,10 +141,10 @@ class AnswerLog(Base):
     __tablename__ = "answer_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    card_id = Column(Integer, ForeignKey("cards.id"), nullable=True)
-    mcq_id = Column(Integer, ForeignKey("mcqs.id"), nullable=True)
-    topic_id = Column(Integer, ForeignKey("topics.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    card_id = Column(Integer, ForeignKey("cards.id", ondelete="CASCADE"), nullable=True)
+    mcq_id = Column(Integer, ForeignKey("mcqs.id", ondelete="CASCADE"), nullable=True)
+    topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"), nullable=True)
     is_correct = Column(Boolean, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
