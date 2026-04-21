@@ -102,6 +102,32 @@ For the app to work, the frontend must know where the API is, and the API must a
 
 ---
 
+---
+
+## 6️⃣ Setting up the CI/CD Pipeline (Flag Bypass) 🛠️
+
+Since your GitHub account is flagged, you can't use the standard "Connect to GitHub" button. Instead, we use **GitHub Actions** with **Secrets** to push updates.
+
+### Step A: Get your Netlify Secrets
+1. **Token:** Go to [Netlify User Settings](https://app.netlify.app/user/settings/applications#personal-access-tokens) → **New Personal Access Token**. Copy it.
+2. **Site ID:** Go to your **Site Settings** → **Site details** → **Site ID** (e.g., `a1eb-23...`).
+
+### Step B: Get your Render Deploy Hook
+1. Go to your **Render Service Dashboard**.
+2. Go to **Settings**.
+3. Scroll to **Deploy Hook**.
+4. Copy the URL (it looks like `https://api.render.com/deploy/srv-...`).
+
+### Step C: Add Secrets to GitHub
+1. In your GitHub repository, go to **Settings** → **Secrets and variables** → **Actions**.
+2. Add the following **New repository secrets**:
+   - `NETLIFY_AUTH_TOKEN`: (The token from Step A1)
+   - `NETLIFY_SITE_ID`: (The ID from Step A2)
+   - `RENDER_DEPLOY_HOOK`: (The URL from Step B)
+   - `GROQ_API_KEY`: (Your Groq key for testing)
+
+---
+
 ## 🛠️ Post-Deployment Verification
 
 ### 1. Check API Health
