@@ -7,6 +7,7 @@ BASE_DIR = Path(__file__).resolve().parent
 
 
 def _normalize_database_url(database_url: str) -> str:
+    # 1. Handle SQLite paths
     sqlite_prefix = "sqlite:///"
     if database_url.startswith(sqlite_prefix):
         raw_path = database_url[len(sqlite_prefix):]
@@ -14,6 +15,11 @@ def _normalize_database_url(database_url: str) -> str:
         if not db_path.is_absolute():
             db_path = (BASE_DIR / db_path).resolve()
         return f"{sqlite_prefix}{db_path}"
+    
+    # 2. Handle 'postgres://' (Heroku/Neon style) to 'postgresql://' (SQLAlchemy style)
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+        
     return database_url
 
 
