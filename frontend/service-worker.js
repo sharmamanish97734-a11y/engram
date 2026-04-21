@@ -38,15 +38,15 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Strategy for API calls to localhost:8000: Network First with offline fallback
-  if (url.hostname === 'localhost' && url.port === '8000') {
+  // Strategy for API calls: Network First with offline fallback
+  if (url.pathname.startsWith('/api') || url.port === '8000' || url.hostname.includes('render.com')) {
     event.respondWith(
       fetch(event.request)
         .catch(() => {
           return new Response(
             JSON.stringify({ 
               error: "Offline", 
-              message: "You are currently offline. Content from localhost:8000 is unavailable." 
+              message: "You are currently offline. Please check your internet connection." 
             }), 
             {
               headers: { 'Content-Type': 'application/json' }
