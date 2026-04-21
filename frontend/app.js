@@ -35,7 +35,8 @@ const iconMap = {
   'home': '🏠', 'book-open': '📖', 'play': '▶️', 'trophy': '🏆', 'log-out': '🚪',
   'flame': '🔥', 'zap': '⚡', 'book': '📚', 'check-circle': '✅', 'clock': '⏱️',
   'clock-3': '🕐', 'arrow-down-left': '↙️', 'arrow-up-right': '↗️', 'x-circle': '❌',
-  'arrow-left': '⬅️', 'x': '❌', 'rotate-cw': '🔄', 'brain': '🧠', 'wand': '🪄', 'sparkles': '✨', 'lightbulb': '💡'
+  'arrow-left': '⬅️', 'x': '❌', 'rotate-cw': '🔄', 'brain': '🧠', 'wand': '🪄', 'sparkles': '✨', 'lightbulb': '💡',
+  'history': '🕒', 'refresh-cw': '🔄', 'trash-2': '🗑️', 'target': '🎯'
 };
 
 const Icon = ({ name, className = "inline-block w-5 h-5", style }) => {
@@ -54,18 +55,9 @@ api.interceptors.request.use(config => {
   return config;
 });
 
-// --- AUTH STORE (replaces Zustand) ---
+// --- AUTH STORE ---
 const authStore = window.createStore((set, get) => ({
   user: null,
-  token: localStorage.getItem('token'),
-  login: (user, token) => {
-    localStorage.setItem('token', token);
-    set({ user, token });
-  },
-  logout: () => {
-    localStorage.removeItem('token');
-    set({ user: null, token: null });
-  },
   setUser: (user) => set({ user })
 }));
 
@@ -76,6 +68,8 @@ const syncCurrentUser = () =>
   api.get('/auth/me').then(res => {
     authStore.getState().setUser(res.data);
     return res.data;
+  }).catch(err => {
+    console.error("Failed to sync user:", err);
   });
 
 // --- SIMPLE DATA FETCHING HOOK (replaces React Query) ---
@@ -148,79 +142,14 @@ const Button = ({ children, onClick, variant = 'primary', className = "", type =
 // --- PAGES ---
 
 // 1. Splash Page
-const Splash = () => {
-  const navigate = useNavigate();
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-[#0A0A0F] to-[#13111C]">
-      <div className="w-24 h-24 bg-gradient-to-tr from-primary to-primaryFocus rounded-3xl rotate-12 mb-8 flex items-center justify-center shadow-2xl shadow-primary/30">
-        <span className="text-4xl text-white font-bold -rotate-12">FF</span>
-      </div>
-      <h1 className="text-5xl font-extrabold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Engram</h1>
-      <p className="text-gray-400 text-center mb-12 max-w-sm text-lg">Master difficult concepts. Get rewarded for learning.</p>
-      
-      <div className="w-full max-w-sm space-y-4">
-        <Button onClick={() => navigate('/home')}>Start Learning</Button>
-      </div>
-    </div>
-  );
-};
-
-// 2. Login Page
-const Login = () => {
-  const navigate = useNavigate();
-  const login = useAuthStore(s => s.login);
-  const [isRegister, setIsRegister] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [username, setUsername] = useState('');
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (isRegister) {
-        const res = await api.post('/auth/register', { email, password, username });
-        login(res.data.user, res.data.access_token);
-      } else {
-        const res = await api.post('/auth/login', { email, password });
-        login(res.data.user, res.data.access_token);
-      }
-      navigate('/home');
-    } catch (err) {
-      alert(err.response?.data?.detail || "An error occurred");
-    }
-  };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <Card className="w-full max-w-md">
-        <h2 className="text-3xl font-bold mb-6 text-center">{isRegister ? "Create Account" : "Welcome Back"}</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {isRegister && (
-             <input type="text" placeholder="Username" required value={username} onChange={e => setUsername(e.target.value)} 
-               className="w-full bg-[#0A0A0F] border border-gray-700 rounded-xl p-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
-          )}
-          <input type="email" placeholder="Email" required value={email} onChange={e => setEmail(e.target.value)}
-            className="w-full bg-[#0A0A0F] border border-gray-700 rounded-xl p-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
-          <input type="password" placeholder="Password" required value={password} onChange={e => setPassword(e.target.value)}
-            className="w-full bg-[#0A0A0F] border border-gray-700 rounded-xl p-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
-          <Button type="submit">{isRegister ? "Sign Up" : "Login"}</Button>
-        </form>
-        <p className="text-center text-gray-400 mt-6 cursor-pointer hover:text-white transition-colors" onClick={() => setIsRegister(!isRegister)}>
-          {isRegister ? "Already have an account? Login" : "Need an account? Sign Up"}
-        </p>
-      </Card>
-    </div>
-  );
-};
-
 // 3. Layout / Nav wrapper
 const Layout = ({ children }) => {
-  const user = useAuthStore(s => s.user);
-  const logout = useAuthStore(s => s.logout);
   const navigate = useNavigate();
+  const user = useAuthStore(state => state.user);
+
   // Fetch user data directly
   useEffect(() => {
-    syncCurrentUser().catch(() => { logout(); navigate('/'); });
+    syncCurrentUser();
   }, []);
 
   return (
@@ -253,8 +182,8 @@ const Layout = ({ children }) => {
         <button className="flex flex-col items-center text-gray-400 border border-gray-700 bg-[#0A0A0F] rounded-full p-2 -mt-6 shadow-xl hover:text-primary transition-colors" onClick={() => navigate('/quiz/random')}>
           <Icon name="play" /><span className="text-[10px] mt-1">Quiz</span>
         </button>
-        <button className="flex flex-col items-center text-gray-400 hover:text-primary transition-colors" onClick={() => { logout(); navigate('/'); }}>
-          <Icon name="log-out" /><span className="text-[10px] mt-1">Logout</span>
+        <button className="flex flex-col items-center text-gray-400 hover:text-primary transition-colors" onClick={() => navigate('/wallet')}>
+          <Icon name="zap" /><span className="text-[10px] mt-1">Wallet</span>
         </button>
       </nav>
     </div>
@@ -395,38 +324,214 @@ const Home = () => {
 // 5. Topics Page
 const Topics = () => {
   const navigate = useNavigate();
-  const { data, isLoading } = useQuery({ queryKey: ['topics'], queryFn: () => api.get('/topics').then(r => r.data) });
+  const { data, isLoading, refetch } = useQuery({ queryKey: ['topics'], queryFn: () => api.get('/topics').then(r => r.data) });
   
+  // AISyllabus Generation State
+  const [showModal, setShowModal] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [subject, setSubject] = useState("");
+  const [counts, setCounts] = useState({ subtopics: 5, cards: 8, mcqs: 5 });
+
+  const handleGenerate = async () => {
+    if (!subject) return;
+    setIsGenerating(true);
+    try {
+      await api.post('/syllabus/generate', { 
+        subject,
+        num_subtopics: counts.subtopics,
+        cards_per_topic: counts.cards,
+        mcqs_per_topic: counts.mcqs
+      });
+      setShowModal(false);
+      setSubject("");
+      refetch();
+    } catch (err) {
+      alert("AI Generation failed. Please check your Groq API key in .env");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleReset = async (e, topic) => {
+    e.stopPropagation();
+    if (confirm(`Are you sure you want to reset all progress for "${topic.name}"? This cannot be undone.`)) {
+      try {
+        await api.post(`/topics/${topic.topic_id}/reset`);
+        refetch();
+      } catch (err) {
+        alert("Failed to reset progress.");
+      }
+    }
+  };
+
+  const formatLastStudied = (dateStr) => {
+    if (!dateStr) return 'Never';
+    const date = new Date(dateStr);
+    const diff = (new Date() - date) / 1000;
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+  };
+
   return (
     <Layout>
-      <h2 className="text-2xl font-bold mb-6">Syllabus</h2>
-      {isLoading ? <p className="text-gray-400 animate-pulse">Loading topics...</p> : (
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold">Your Syllabus</h2>
+        <div className="text-xs text-gray-400 bg-surface px-3 py-1 rounded-full border border-gray-800">
+          {data?.length || 0} Topics
+        </div>
+      </div>
+
+      {/* AI Generate Button */}
+      <button 
+        onClick={() => { setSubject(""); setShowModal(true); }}
+        className="w-full mb-8 bg-gradient-to-r from-primary/20 to-primaryFocus/20 border border-primary/30 rounded-2xl p-4 flex items-center justify-center gap-3 group hover:border-primary transition-all shadow-lg"
+      >
+        <div className="bg-primary/20 text-primary p-2 rounded-xl group-hover:scale-110 transition-transform">
+          <Icon name="wand" className="w-5 h-5" />
+        </div>
+        <span className="font-bold text-primary">Generate New Syllabus with Groq AI</span>
+        <Icon name="sparkles" className="text-primary/50" />
+      </button>
+      
+      {isLoading ? (
         <div className="space-y-4">
-          {data?.map((topic, i) => (
-             <div key={topic.id} className="bg-surface border border-gray-800 rounded-2xl p-5 transition-all" style={{animationDelay: `${i*100}ms`}}>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex flex-col">
-                    <span className="text-xs uppercase font-bold tracking-wider text-primary">{topic.category}</span>
-                    {topic.due_count > 0 && (
-                      <span className="text-[10px] font-bold text-orange-500 flex items-center gap-0.5 mt-1">
-                        <Icon name="clock-3" className="w-3 h-3" /> {topic.due_count} DUE
-                      </span>
-                    )}
+          {[1,2,3].map(i => <Skeleton key={i} className="h-48 w-full rounded-2xl" />)}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {data?.filter(t => !t.parent_id).map((topic, i) => {
+             const totalCards = topic.card_count + topic.mcq_count;
+             const learnedPercent = totalCards > 0 ? (topic.learned_count / totalCards) * 100 : 0;
+             const masteryColor = topic.mastery_percent > 80 ? 'text-emerald-400' : topic.mastery_percent > 40 ? 'text-blue-400' : 'text-gray-400';
+             
+             return (
+               <div key={topic.id} className="bg-surface border border-gray-800 rounded-2xl p-5 transition-all hover:bg-[#13111C]/50" style={{animationDelay: `${i*100}ms`}}>
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase font-black tracking-widest text-primary mb-1">{topic.category || 'Curriculum'}</span>
+                      <h3 className="font-bold text-lg text-white leading-tight">{topic.name}</h3>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <div className={`text-xl font-black ${masteryColor}`}>{topic.mastery_percent}%</div>
+                      <div className="text-[8px] uppercase font-bold text-gray-500 tracking-tighter">Mastery</div>
+                    </div>
                   </div>
-                  <span className="text-xs text-gray-500 flex items-center gap-1"><Icon name="clock" /> {topic.estimated_minutes} min</span>
-                </div>
-                <h3 className="font-bold text-lg text-white mb-2 leading-tight">{topic.name}</h3>
-                <div className="flex gap-4 mt-6">
-                   <button onClick={() => navigate(`/learn/${topic.topic_id}`)} className="text-sm font-semibold text-white bg-white/5 hover:bg-white/10 w-full py-2 rounded-lg transition-colors">Study Cards</button>
-                   <button onClick={() => navigate(`/quiz/${topic.topic_id}`)} className="text-sm font-semibold text-black bg-white hover:bg-gray-200 w-full py-2 rounded-lg transition-colors">Take Quiz</button>
-                </div>
-             </div>
-          ))}
+                  
+                  {/* Progress Bar */}
+                  <div className="mb-4">
+                    <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1.5">
+                      <span>{topic.learned_count} / {totalCards} LEARNED</span>
+                      <span>{topic.due_count} DUE</span>
+                    </div>
+                    <div className="h-2 bg-gray-900 rounded-full overflow-hidden flex border border-gray-800/50">
+                      <div className="h-full bg-primary shadow-[0_0_8px_rgba(var(--primary-rgb),0.4)]" style={{width: `${learnedPercent}%`}}></div>
+                    </div>
+                  </div>
+
+                  {/* Dashboard Stats */}
+                  <div className="grid grid-cols-2 gap-3 mb-5">
+                    <div className="bg-[#0A0A0F]/50 rounded-xl p-2.5 border border-gray-800/50">
+                       <div className="text-[9px] text-gray-500 font-bold uppercase mb-0.5">Last Studied</div>
+                       <div className="text-xs text-gray-300 flex items-center gap-1.5 font-medium">
+                         <Icon name="history" className="w-3 h-3 opacity-50" /> {formatLastStudied(topic.last_studied)}
+                       </div>
+                    </div>
+                    <div className="bg-[#0A0A0F]/50 rounded-xl p-2.5 border border-gray-800/50">
+                       <div className="text-[9px] text-gray-500 font-bold uppercase mb-0.5">Next Session</div>
+                       <div className="text-xs text-gray-300 flex items-center gap-1.5 font-medium">
+                         <Icon name="clock" className="w-3 h-3 opacity-50" /> {topic.next_session_minutes} min
+                       </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                     <button onClick={() => navigate(`/learn/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-white bg-primary hover:bg-primaryFocus py-2.5 rounded-xl transition-all shadow-lg shadow-primary/10">Study Due</button>
+                     <button onClick={() => navigate(`/quiz/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-black bg-white hover:bg-gray-200 py-2.5 rounded-xl transition-all">Quiz</button>
+                     <div className="flex gap-1 bg-gray-900/50 p-1 rounded-xl border border-gray-800">
+                        <button title="Regenerate" onClick={(e) => { e.stopPropagation(); setSubject(topic.name); setShowModal(true); }} className="p-2 text-primary/60 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"><Icon name="wand" className="w-4 h-4" /></button>
+                        <button title="Review All" onClick={() => navigate(`/learn/${topic.topic_id}?all=true`)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"><Icon name="refresh-cw" className="w-4 h-4" /></button>
+                        <button title="Reset Progress" onClick={(e) => handleReset(e, topic)} className="p-2 text-gray-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"><Icon name="trash-2" className="w-4 h-4" /></button>
+                     </div>
+                  </div>
+               </div>
+             )
+          })}
         </div>
       )}
+
+      {/* Generation Modal */}
+      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="AI Syllabus Generator">
+        {isGenerating ? (
+          <div className="p-12 flex flex-col items-center justify-center text-center space-y-6">
+            <div className="relative">
+              <div className="w-20 h-20 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+              <Icon name="wand" className="absolute inset-0 m-auto w-8 h-8 text-primary animate-pulse" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-white mb-2">Groq AI is designing...</h3>
+              <p className="text-gray-400 text-sm italic">Building subtopics, flashcards, and quiz questions for "{subject}"</p>
+            </div>
+            <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
+               <div className="bg-primary h-full animate-[progress_15s_ease-in-out]"></div>
+            </div>
+          </div>
+        ) : (
+          <div className="p-2 space-y-5">
+            <div>
+              <label className="text-[10px] font-black uppercase text-gray-500 mb-2 block tracking-widest">Main Subject</label>
+              <input 
+                type="text" 
+                value={subject} 
+                onChange={e => setSubject(e.target.value)}
+                placeholder="e.g. Computer Vision, Deep Learning"
+                className="w-full bg-[#0A0A0F] border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-primary transition-colors"
+                autoFocus
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-[9px] font-black uppercase text-gray-500 mb-1.5 block tracking-tighter">Subtopics</label>
+                <input 
+                  type="number" 
+                  value={counts.subtopics} 
+                  onChange={e => setCounts({...counts, subtopics: e.target.value})}
+                  className="w-full bg-[#0A0A0F] border border-gray-800 rounded-lg px-2 py-2 text-sm text-center"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-black uppercase text-gray-500 mb-1.5 block tracking-tighter">Cards/Topic</label>
+                <input 
+                  type="number" 
+                  value={counts.cards} 
+                  onChange={e => setCounts({...counts, cards: e.target.value})}
+                  className="w-full bg-[#0A0A0F] border border-gray-800 rounded-lg px-2 py-2 text-sm text-center"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-black uppercase text-gray-500 mb-1.5 block tracking-tighter">MCQs/Topic</label>
+                <input 
+                  type="number" 
+                  value={counts.mcqs} 
+                  onChange={e => setCounts({...counts, mcqs: e.target.value})}
+                  className="w-full bg-[#0A0A0F] border border-gray-800 rounded-lg px-2 py-2 text-sm text-center"
+                />
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-gray-800/50">
+              <Button onClick={handleGenerate} disabled={!subject}>Start Generation</Button>
+              <p className="text-[10px] text-gray-500 mt-4 text-center">Powered by Llama-3.3-70B on Groq</p>
+            </div>
+          </div>
+        )}
+      </Modal>
     </Layout>
   )
 }
+
 
 // 6. Learn Mode (Flashcards)
 const Learn = ({ id }) => {
@@ -435,7 +540,13 @@ const Learn = ({ id }) => {
     const [flipped, setFlipped] = useState(false);
     const [hint, setHint] = useState(null);
     const [isHinting, setIsHinting] = useState(false);
-    const { data: cards, isLoading } = useQuery({ queryKey: ['cards', id], queryFn: () => api.get(`/topics/${id}/cards`).then(r => r.data) });
+    const { data: cards, isLoading } = useQuery({ 
+        queryKey: ['cards', id, window.location.hash.includes('all=true')], 
+        queryFn: () => {
+            const isAll = window.location.hash.includes('all=true');
+            return api.get(`/topics/${id}/cards${isAll ? '?all=true' : ''}`).then(r => r.data);
+        }
+    });
 
     const getHint = async (e) => {
         e.stopPropagation();
@@ -713,13 +824,8 @@ const App = () => {
   
   // Route matching
   const renderPage = () => {
-    if (path === '/' || path === '') {
-      return token ? <Home /> : <Splash />;
-    }
-    if (path === '/login') return token ? <Home /> : <Login />;
-    
     // Protected routes
-    if (path === '/home') return <Home />;
+    if (path === '/' || path === '' || path === '/home') return <Home />;
     if (path === '/topics') return <Topics />;
     if (path.startsWith('/learn/')) {
       const id = path.split('/')[2];
@@ -731,7 +837,7 @@ const App = () => {
     }
     if (path === '/wallet') return <Wallet />;
     
-    return <Splash />; // default
+    return <Home />; // default
   };
   
   return renderPage();

@@ -11,6 +11,15 @@ load_dotenv()
 # Create tables on startup
 Base.metadata.create_all(bind=engine)
 
+# Ensure default user exists
+from database import SessionLocal
+from services.auth import get_or_create_default_user
+db = SessionLocal()
+try:
+    get_or_create_default_user(db)
+finally:
+    db.close()
+
 app = FastAPI(
     title="Engram API",
     description="Personal learning app with spaced repetition and quizzes",

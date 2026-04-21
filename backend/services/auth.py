@@ -27,36 +27,32 @@ def create_access_token(data: dict) -> str:
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def get_or_create_guest_user(db: Session) -> User:
+def get_or_create_default_user(db: Session) -> User:
+    # First attempt to get user with ID 1
+    user = db.query(User).filter(User.id == 1).first()
+    if user:
+        return user
+    
+    # If not found, get any user
     user = db.query(User).order_by(User.id.asc()).first()
     if user:
         return user
 
-    guest_user = User(
-        username="guest",
-        email="guest@engram.local",
-        hashed_password=hash_password("guest-login-disabled"),
+    # If no users exist, create the default one
+    default_user = User(
+        id=1,
+        username="User",
+        email="user@engram.local",
+        hashed_password=hash_password("default"),
         wallet_balance=0.0,
         is_active=True,
     )
-    db.add(guest_user)
+    db.add(default_user)
     db.commit()
-    db.refresh(guest_user)
-    return guest_user
+    db.refresh(default_user)
+    return default_user
 
 
 def get_current_user(token: str | None = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
-    if not token:
-        return get_or_create_guest_user(db)
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id: int = payload.get("sub")
-        if user_id is None:
-            return get_or_create_guest_user(db)
-    except JWTError:
-        return get_or_create_guest_user(db)
-
-    user = db.query(User).filter(User.id == int(user_id)).first()
-    if user is None:
-        return get_or_create_guest_user(db)
-    return user
+    # Always return the default user, ignoring the token
+    return get_or_create_default_user(db)

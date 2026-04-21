@@ -113,15 +113,11 @@ def analyze(data: AIAnalyzeRequest, db: Session = Depends(get_db)):
     topic_stats = {} # {topic_id: {correct: int, total: int}}
     
     for p in performances:
-        tid = p.topic_id if hasattr(p, 'topic_id') else None
-        # Fallback: get topic from item if not on performance
-        if not tid:
-            if p.mcq_id:
-                item = db.get(MCQ, p.mcq_id)
-                tid = item.topic_id if item else None
-            elif p.card_id:
-                item = db.get(Card, p.card_id)
-                tid = item.topic_id if item else None
+        tid = None
+        if p.mcq_id:
+            tid = p.mcq.topic_id if p.mcq else None
+        elif p.card_id:
+            tid = p.card.topic_id if p.card else None
         
         if tid:
             if tid not in topic_stats:

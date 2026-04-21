@@ -6,11 +6,12 @@ This document describes the current working flow of Engram after simplifying it 
 
 Engram is now a personal study app centered around:
 
-- topic-based study
+- topic-based study with AI-generated hierarchical syllabi
 - flashcard review
 - adaptive quiz practice
 - spaced repetition
 - simple streak and wallet-style motivation
+- AI tutoring (hints, explanations, weak area analysis)
 
 Removed from the main flow:
 
@@ -26,7 +27,7 @@ Removed from the main flow:
 3. Log in or use your saved session.
 4. Land on the home screen.
 5. Choose one of the main study paths:
-   - `Topics` for topic-based learning
+   - `Topics` for topic-based learning or to generate a new syllabus with AI
    - `Quiz` for a random quiz session
    - `Wallet` to view progress-style reward history
 6. Study cards or answer quiz questions.
@@ -51,7 +52,7 @@ Important routes:
 - `/` -> splash if logged out, home if logged in
 - `/login` -> login/register page
 - `/home` -> home dashboard
-- `/topics` -> topic list
+- `/topics` -> topic list + AI generation button
 - `/learn/:topic_id` -> flashcard study
 - `/quiz/:topic_id` -> topic quiz
 - `/quiz/random` -> mixed quiz
@@ -75,8 +76,7 @@ The home page shows:
 - username
 - current streak
 - quick actions for `Learn` and `Quiz`
-
-This is the main personal dashboard.
+- AI Insight Analysis button — runs weak area analysis via Groq
 
 ### Topics Screen
 
@@ -84,17 +84,51 @@ The topics page fetches:
 
 - `GET /topics`
 
-It displays:
+It displays only **parent topics** (filtered by `parent_id == null`), showing:
 
-- topic name
-- category
-- estimated time
+- topic name and category
+- mastery percentage
+- learned vs. total card count
 - due card count
+- last studied and next session estimate
 
 Each topic offers:
 
-- `Study Cards`
-- `Take Quiz`
+- `Study Due` — study cards due for review
+- `Quiz` — MCQ quiz for this topic
+- `Regenerate` (🪄) — opens the AI generation modal pre-filled with this topic name
+- `Review All` — study all cards regardless of due date
+- `Reset Progress` — clears all SM-2 data for this topic
+
+**AI Syllabus Generator button** at the top of the Topics screen:
+
+- Opens a modal with a subject input field plus optional counts (subtopics, cards/topic, MCQs/topic)
+- On submit, calls `POST /syllabus/generate`
+- Shows a Groq AI loading animation (~8–15 seconds)
+- On success, refreshes the topic list
+
+## Syllabus Generation Flow
+
+New flow using Groq AI:
+
+1. User opens the AI Syllabus Generator modal.
+2. User enters a subject (e.g. "Computer Vision") and optional counts.
+3. Frontend submits: `POST /syllabus/generate`
+4. Backend calls `groq_generator.generate_syllabus()`:
+   - Uses `llama-3.3-70b-versatile` on Groq
+   - Returns JSON with: name, description, subtopics, cards (front/back), MCQs
+5. Backend saves:
+   - A parent `Topic` row (the subject)
+   - One `Topic` row per subtopic with `parent_id` pointing to the parent
+   - `Card` rows for each subtopic (front = title, back = content)
+   - `MCQ` rows for each subtopic
+6. Backend returns: `{ "created_topic_ids": [...] }`
+7. Frontend refreshes the topic list.
+
+Relevant files:
+
+- [backend/services/groq_generator.py](/home/manish-sharma/Desktop/Engram2/Engram/backend/services/groq_generator.py)
+- [backend/routers/content.py](/home/manish-sharma/Desktop/Engram2/Engram/backend/routers/content.py)
 
 ## Learn Flow
 
@@ -109,20 +143,21 @@ Main component:
    - `GET /topics/{topic_id}/cards`
 3. Backend returns due cards for that topic.
 4. User flips a flashcard.
-5. User rates the card:
+5. User can request an AI hint: `POST /ai/hint`
+6. User rates the card:
    - `Skip`
    - `Hard`
    - `Good`
    - `Easy`
-6. Frontend submits:
+7. Frontend submits:
    - `POST /card/rate`
-7. Backend updates:
+8. Backend updates:
    - card performance record
    - SM-2 interval
    - next review date
    - streak
    - wallet balance when applicable
-8. Frontend refreshes current user data and moves to the next card.
+9. Frontend refreshes current user data and moves to the next card.
 
 ### Learn Backend Logic
 
@@ -169,7 +204,8 @@ Main component:
    - explanation
    - wallet delta
    - updated balance
-8. Frontend shows feedback, then moves to the next question.
+8. AI deep-dive explanation triggers automatically: `POST /ai/explain`
+9. Frontend shows feedback, then moves to the next question.
 
 ### Quiz Backend Logic
 
@@ -189,6 +225,32 @@ Reward rule:
 - first-time correct answer -> `perfect_answer`
 - later correct answer -> `correct_answer`
 - wrong answer -> `wrong_answer` penalty
+
+## AI Services Flow
+
+All AI features use Groq Cloud via the `openai` Python SDK configured with the Groq base URL.
+
+### AI Router
+
+- [backend/routers/ai.py](/home/manish-sharma/Desktop/Engram2/Engram/backend/routers/ai.py)
+
+Endpoints:
+
+- `POST /ai/explain` — explains why an answer is correct/incorrect after a quiz question
+- `POST /ai/hint` — gives a subtle hint for the current flashcard
+- `POST /ai/generate-cards` — generates 10 new cards for a topic
+- `POST /ai/generate-mcq` — generates 5 new MCQs for a topic
+- `POST /ai/analyze` — analyzes wrong answers and topic accuracies, returns weak areas and action plan
+
+### AI Services
+
+- [backend/services/ai_service.py](/home/manish-sharma/Desktop/Engram2/Engram/backend/services/ai_service.py) — tutoring, hints, analysis with 7-day caching
+- [backend/services/groq_generator.py](/home/manish-sharma/Desktop/Engram2/Engram/backend/services/groq_generator.py) — full syllabus generation
+
+Models used:
+
+- `llama-3.1-8b-instant` — fast model for hints and explanations
+- `llama-3.3-70b-versatile` — powerful model for analysis and syllabus generation
 
 ## Wallet Flow
 
@@ -250,28 +312,39 @@ Main backend files:
 - [backend/database.py](/home/manish-sharma/Desktop/Engram2/Engram/backend/database.py)
 - [backend/models/__init__.py](/home/manish-sharma/Desktop/Engram2/Engram/backend/models/__init__.py)
 - [backend/schemas/__init__.py](/home/manish-sharma/Desktop/Engram2/Engram/backend/schemas/__init__.py)
+- [backend/alembic.ini](/home/manish-sharma/Desktop/Engram2/Engram/backend/alembic.ini)
 
 Main routers:
 
 - `auth`
-- `content`
-- `answer`
+- `content` (topics, cards, MCQs, syllabus generation)
+- `answer` (card rating, MCQ submission)
+- `ai` (hints, explanations, analysis, generation)
 - `wallet`
 
-Important note:
+Important notes:
 
-The database path is normalized in config so the app always uses the backend-local SQLite file consistently.
+- The database path is normalized in config so the app always uses the backend-local SQLite file consistently.
+- Alembic is initialized in `backend/` with SQLite batch mode enabled.
+- `Topic` now supports a `parent_id` for subject → subtopic hierarchy.
 
 ## Data Flow Summary
 
 ### Topic List
 
 - frontend -> `GET /topics`
-- backend -> topics + due counts
+- backend -> parent topics only + mastery/due counts
+
+### AI Syllabus Generation
+
+- frontend -> `POST /syllabus/generate` with subject name + counts
+- backend -> calls Groq, saves parent topic + subtopics + cards + MCQs
+- backend -> returns `{ created_topic_ids: [...] }`
 
 ### Learn Session
 
 - frontend -> `GET /topics/{id}/cards`
+- frontend -> `POST /ai/hint` (optional)
 - frontend -> `POST /card/rate`
 - backend -> updates card review state, streak, wallet
 
@@ -279,12 +352,18 @@ The database path is normalized in config so the app always uses the backend-loc
 
 - frontend -> `GET /mcq/random` or `GET /topics/{id}/mcqs`
 - frontend -> `POST /answer`
+- frontend -> `POST /ai/explain` (auto-triggered)
 - backend -> updates MCQ performance, streak, wallet
 
 ### Wallet View
 
 - frontend -> `GET /wallet`
 - backend -> current balance + recent transactions
+
+### AI Analysis
+
+- frontend -> `POST /ai/analyze` with user_id
+- backend -> returns weak topics, focus area, action plan
 
 ## Local Run Flow
 
@@ -293,7 +372,7 @@ The database path is normalized in config so the app always uses the backend-loc
 ```bash
 cd backend
 source venv/bin/activate
-python seeds/seed_dl.py
+alembic upgrade head        # apply any pending schema migrations
 uvicorn main:app --reload --port 8000
 ```
 
@@ -311,9 +390,12 @@ Recommended URL:
 
 ## What To Change Next
 
-If you want to simplify further for single-user personal use, the next logical steps are:
+Possible next steps:
 
 - remove signup/login and auto-use one personal account
 - rename `Wallet` to `Progress`
-- reduce motivational balance mechanics if they feel distracting
-- add a proper progress dashboard per topic
+- add subtopic drill-down view (click a parent topic to see its subtopics)
+- add a topic search/filter bar on the Topics screen
+- add export to Anki or CSV
+
+

@@ -24,3 +24,10 @@ node_modules/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+AGENT.md
+alembic.ini
+alembic/
+scratch/
+
+backend/services/groq_generator.py

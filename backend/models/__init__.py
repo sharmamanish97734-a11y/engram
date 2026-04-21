@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, ForeignKey, Text, Enum
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
 from database import Base
 import enum
@@ -47,13 +47,16 @@ class Topic(Base):
     id = Column(Integer, primary_key=True, index=True)
     topic_id = Column(String(50), unique=True, index=True)
     name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
     category = Column(String(100))
     order = Column(Integer, default=0)
     estimated_minutes = Column(Integer, default=30)
+    parent_id = Column(Integer, ForeignKey("topics.id"), nullable=True)
 
     # Relationships
     cards = relationship("Card", back_populates="topic")
     mcqs = relationship("MCQ", back_populates="topic")
+    subtopics = relationship("Topic", backref=backref("parent", remote_side=[id]))
 
 
 class Card(Base):

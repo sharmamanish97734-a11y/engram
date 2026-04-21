@@ -68,12 +68,19 @@ class TopicOut(BaseModel):
     id: int
     topic_id: str
     name: str
+    description: Optional[str] = None
     category: Optional[str] = None
+    parent_id: Optional[int] = None
     order: int
     estimated_minutes: int
+
     card_count: int = 0
     mcq_count: int = 0
     due_count: int = 0
+    learned_count: int = 0
+    mastery_percent: int = 0
+    last_studied: Optional[datetime] = None
+    next_session_minutes: int = 0
 
     class Config:
         from_attributes = True
@@ -146,3 +153,7 @@ class AIGenerateMCQRequest(BaseModel):
 
 class AIAnalyzeRequest(BaseModel):
     user_id: int
+
+class SyllabusGenerateRequest(BaseModel):
+    subject: str
+
