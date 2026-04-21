@@ -60,6 +60,7 @@ def list_topics(db: Session = Depends(get_db), user: User = Depends(get_current_
             topic_id=t.topic_id,
             name=t.name,
             category=t.category,
+            parent_id=t.parent_id,
             order=t.order,
             estimated_minutes=t.estimated_minutes,
             card_count=len(t.cards),

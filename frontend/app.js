@@ -25,7 +25,11 @@ const useParams = () => {
   const path = useStore(routerStore, s => s.path);
   // Simple param extraction from path like /learn/123 -> {id: '123'}
   const match = path.match(/^\/(\w+)\/(.+)$/);
-  return match ? { id: match[2] } : {};
+  if (!match) return {};
+  
+  // Strip query parameters from the ID (e.g. 123?all=true -> 123)
+  const id = match[2].split('?')[0];
+  return { id };
 };
 
 const useRouterPath = () => useStore(routerStore, s => s.path);
@@ -43,7 +47,11 @@ const Icon = ({ name, className = "inline-block w-5 h-5", style }) => {
   return <span className={className} style={style}>{iconMap[name] || '•'}</span>;
 }
 
-const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.');
+const isLocal = window.location.hostname === 'localhost' || 
+                 window.location.hostname === '127.0.0.1' || 
+                 window.location.hostname === '0.0.0.0' ||
+                 window.location.hostname.startsWith('192.168.');
+
 const API_BASE = isLocal
   ? `http://${window.location.hostname}:8000`
   : "https://engram-backend.onrender.com";
@@ -403,61 +411,81 @@ const Topics = () => {
           {[1,2,3].map(i => <Skeleton key={i} className="h-48 w-full rounded-2xl" />)}
         </div>
       ) : (
-        <div className="space-y-4">
-          {data?.filter(t => !t.parent_id).map((topic, i) => {
-             const totalCards = topic.card_count + topic.mcq_count;
-             const learnedPercent = totalCards > 0 ? (topic.learned_count / totalCards) * 100 : 0;
-             const masteryColor = topic.mastery_percent > 80 ? 'text-emerald-400' : topic.mastery_percent > 40 ? 'text-blue-400' : 'text-gray-400';
-             
+        <div className="space-y-8">
+          {data?.filter(t => !t.parent_id).map((syllabus, i) => {
+             const subtopics = data.filter(t => t.parent_id === syllabus.id);
              return (
-               <div key={topic.id} className="bg-surface border border-gray-800 rounded-2xl p-5 transition-all hover:bg-[#13111C]/50" style={{animationDelay: `${i*100}ms`}}>
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] uppercase font-black tracking-widest text-primary mb-1">{topic.category || 'Curriculum'}</span>
-                      <h3 className="font-bold text-lg text-white leading-tight">{topic.name}</h3>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <div className={`text-xl font-black ${masteryColor}`}>{topic.mastery_percent}%</div>
-                      <div className="text-[8px] uppercase font-bold text-gray-500 tracking-tighter">Mastery</div>
+               <div key={syllabus.id} className="animate-in fade-in slide-in-from-bottom-2" style={{animationDelay: `${i*100}ms`}}>
+                  <div className="flex justify-between items-end pb-3 mb-4 border-b border-gray-800">
+                    <div>
+                      <span className="text-[10px] uppercase font-black tracking-widest text-primary mb-1 border border-primary/20 bg-primary/10 px-2 py-0.5 rounded-full inline-block">Syllabus</span>
+                      <h2 className="text-xl font-bold text-white mt-1">{syllabus.name}</h2>
                     </div>
                   </div>
                   
-                  {/* Progress Bar */}
-                  <div className="mb-4">
-                    <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1.5">
-                      <span>{topic.learned_count} / {totalCards} LEARNED</span>
-                      <span>{topic.due_count} DUE</span>
-                    </div>
-                    <div className="h-2 bg-gray-900 rounded-full overflow-hidden flex border border-gray-800/50">
-                      <div className="h-full bg-primary shadow-[0_0_8px_rgba(var(--primary-rgb),0.4)]" style={{width: `${learnedPercent}%`}}></div>
-                    </div>
-                  </div>
+                  {subtopics.length === 0 ? (
+                    <div className="text-sm text-gray-500 italic p-6 bg-surface rounded-2xl border border-gray-800 border-dashed text-center">No topics generated yet.</div>
+                  ) : (
+                    <div className="space-y-4">
+                      {subtopics.map((topic, j) => {
+                         const totalCards = topic.card_count + topic.mcq_count;
+                         const learnedPercent = totalCards > 0 ? (topic.learned_count / totalCards) * 100 : 0;
+                         const masteryColor = topic.mastery_percent > 80 ? 'text-emerald-400' : topic.mastery_percent > 40 ? 'text-blue-400' : 'text-gray-400';
+                         
+                         return (
+                           <div key={topic.id} className="bg-surface border border-gray-800 rounded-2xl p-5 transition-all hover:bg-[#13111C]/50">
+                              <div className="flex justify-between items-start mb-4">
+                                <div className="flex flex-col">
+                                  <span className="text-[10px] uppercase font-black tracking-widest text-gray-500 mb-1">{topic.category || 'Topic'}</span>
+                                  <h3 className="font-bold text-lg text-white leading-tight">{topic.name}</h3>
+                                </div>
+                                <div className="flex flex-col items-end">
+                                  <div className={`text-xl font-black ${masteryColor}`}>{topic.mastery_percent}%</div>
+                                  <div className="text-[8px] uppercase font-bold text-gray-500 tracking-tighter">Mastery</div>
+                                </div>
+                              </div>
+                              
+                              {/* Progress Bar */}
+                              <div className="mb-4">
+                                <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1.5">
+                                  <span>{topic.learned_count} / {totalCards} LEARNED</span>
+                                  <span>{topic.due_count} DUE</span>
+                                </div>
+                                <div className="h-2 bg-gray-900 rounded-full overflow-hidden flex border border-gray-800/50">
+                                  <div className="h-full bg-primary shadow-[0_0_8px_rgba(var(--primary-rgb),0.4)]" style={{width: `${learnedPercent}%`}}></div>
+                                </div>
+                              </div>
 
-                  {/* Dashboard Stats */}
-                  <div className="grid grid-cols-2 gap-3 mb-5">
-                    <div className="bg-[#0A0A0F]/50 rounded-xl p-2.5 border border-gray-800/50">
-                       <div className="text-[9px] text-gray-500 font-bold uppercase mb-0.5">Last Studied</div>
-                       <div className="text-xs text-gray-300 flex items-center gap-1.5 font-medium">
-                         <Icon name="history" className="w-3 h-3 opacity-50" /> {formatLastStudied(topic.last_studied)}
-                       </div>
-                    </div>
-                    <div className="bg-[#0A0A0F]/50 rounded-xl p-2.5 border border-gray-800/50">
-                       <div className="text-[9px] text-gray-500 font-bold uppercase mb-0.5">Next Session</div>
-                       <div className="text-xs text-gray-300 flex items-center gap-1.5 font-medium">
-                         <Icon name="clock" className="w-3 h-3 opacity-50" /> {topic.next_session_minutes} min
-                       </div>
-                    </div>
-                  </div>
+                              {/* Dashboard Stats */}
+                              <div className="grid grid-cols-2 gap-3 mb-5">
+                                <div className="bg-[#0A0A0F]/50 rounded-xl p-2.5 border border-gray-800/50">
+                                   <div className="text-[9px] text-gray-500 font-bold uppercase mb-0.5">Last Studied</div>
+                                   <div className="text-xs text-gray-300 flex items-center gap-1.5 font-medium">
+                                     <Icon name="history" className="w-3 h-3 opacity-50" /> {formatLastStudied(topic.last_studied)}
+                                   </div>
+                                </div>
+                                <div className="bg-[#0A0A0F]/50 rounded-xl p-2.5 border border-gray-800/50">
+                                   <div className="text-[9px] text-gray-500 font-bold uppercase mb-0.5">Next Session</div>
+                                   <div className="text-xs text-gray-300 flex items-center gap-1.5 font-medium">
+                                     <Icon name="clock" className="w-3 h-3 opacity-50" /> {topic.next_session_minutes} min
+                                   </div>
+                                </div>
+                              </div>
 
-                  <div className="flex gap-2">
-                     <button onClick={() => navigate(`/learn/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-white bg-primary hover:bg-primaryFocus py-2.5 rounded-xl transition-all shadow-lg shadow-primary/10">Study Due</button>
-                     <button onClick={() => navigate(`/quiz/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-black bg-white hover:bg-gray-200 py-2.5 rounded-xl transition-all">Quiz</button>
-                     <div className="flex gap-1 bg-gray-900/50 p-1 rounded-xl border border-gray-800">
-                        <button title="Regenerate" onClick={(e) => { e.stopPropagation(); setSubject(topic.name); setShowModal(true); }} className="p-2 text-primary/60 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"><Icon name="wand" className="w-4 h-4" /></button>
-                        <button title="Review All" onClick={() => navigate(`/learn/${topic.topic_id}?all=true`)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"><Icon name="refresh-cw" className="w-4 h-4" /></button>
-                        <button title="Reset Progress" onClick={(e) => handleReset(e, topic)} className="p-2 text-gray-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"><Icon name="trash-2" className="w-4 h-4" /></button>
-                     </div>
-                  </div>
+                              <div className="flex gap-2">
+                                 <button onClick={() => navigate(`/learn/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-white bg-primary hover:bg-primaryFocus py-2.5 rounded-xl transition-all shadow-lg shadow-primary/10">Study Due</button>
+                                 <button onClick={() => navigate(`/quiz/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-black bg-white hover:bg-gray-200 py-2.5 rounded-xl transition-all">Quiz</button>
+                                 <div className="flex gap-1 bg-gray-900/50 p-1 rounded-xl border border-gray-800">
+                                    <button title="Regenerate" onClick={(e) => { e.stopPropagation(); setSubject(topic.name); setShowModal(true); }} className="p-2 text-primary/60 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"><Icon name="wand" className="w-4 h-4" /></button>
+                                    <button title="Review All" onClick={() => navigate(`/learn/${topic.topic_id}?all=true`)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"><Icon name="refresh-cw" className="w-4 h-4" /></button>
+                                    <button title="Reset Progress" onClick={(e) => handleReset(e, topic)} className="p-2 text-gray-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"><Icon name="trash-2" className="w-4 h-4" /></button>
+                                 </div>
+                              </div>
+                           </div>
+                         )
+                      })}
+                    </div>
+                  )}
                </div>
              )
           })}
