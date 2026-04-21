@@ -6,11 +6,11 @@ This guide walks you through deploying the **Engram** full-stack mastery platfor
 
 ## 🏗️ Deployment Overview
 
-| Component | Platform | Primary Technology |
+| Component | Platform Options | Primary Technology |
 |---|---|---|
-| **Backend API** | [Render](https://render.com) | FastAPI + Python 3.12 |
+| **Backend API** | [Render](https://render.com) (Standard) or Local (Tunnel) | FastAPI + Python 3.12 |
 | **Database** | Render PostgreSQL | Persistence for study data |
-| **Frontend** | [Netlify](https://netlify.com) | Vanilla React (Static) |
+| **Frontend** | [Netlify](https://netlify.com) or **[Cloudflare Pages](https://pages.cloudflare.com)** | Vanilla React (Static) |
 | **AI Layer** | [Groq Cloud](https://groq.com) | Llama 3 Infrastructure |
 
 ---
@@ -30,7 +30,7 @@ In the Blueprint configuration, ensure the following variables are set:
 |---|---|---|
 | `GROQ_API_KEY` | *[Your API Key]* | Get this from [Groq Console](https://console.groq.com/keys) |
 | `DATABASE_URL` | *Auto-generated* | If using Render PostgreSQL, this is filled for you |
-| `FRONTEND_URL` | `https://your-app.netlify.app` | Update this **after** completing the Netlify step |
+| `FRONTEND_URL` | `https://your-app.pages.dev` | Update this **after** completing the Cloudflare/Netlify step |
 
 ### Step C: Database Persistence (Crucial)
 > [!IMPORTANT]
@@ -39,25 +39,49 @@ In the Blueprint configuration, ensure the following variables are set:
 
 ---
 
-## 2️⃣ Frontend Setup (Netlify)
+## 2️⃣ Frontend Setup (Option A: Cloudflare Pages) 🌟 Recommended
 
-### Step A: Deploy Website
+### Step A: Create Project
+1. Log in to your [Cloudflare Dashboard](https://dash.cloudflare.com/).
+2. Go to **Workers & Pages** > **Create application** > **Pages** > **Connect to Git**.
+3. Select your repository: `manishsharma29841/Engram`.
+
+### Step B: Build Settings
+- **Project Name:** `engram`
+- **Production Branch:** `engramv2`
+- **Framework Preset:** None
+- **Build command:** (Leave blank)
+- **Build output directory:** `frontend`
+
+### Step C: Get your URL
+Cloudflare will give you a URL like `https://engram.pages.dev`.
+
+---
+
+## 3️⃣ Frontend Setup (Option B: Netlify)
+
 1. Log in to [Netlify](https://app.netlify.com/).
 2. Click **Add new site** > **Import an existing project**.
 3. Select your GitHub repository.
 4. **Site settings:**
    - **Branch:** `engramv2`
-   - **Base directory:** (Leave blank)
-   - **Build command:** (Leave blank)
    - **Publish directory:** `frontend`
 5. Click **Deploy site**.
 
-### Step B: Get your URL
-Once deployed, you will get a URL like `https://creative-engram-123.netlify.app`. 
+---
+
+## 4️⃣ Advanced: Cloudflare Tunnel (Local Hosting)
+
+If you want to host the **Backend** on your own computer but make it safely accessible via the internet:
+1. Install `cloudflared` on your machine.
+2. Login: `cloudflared tunnel login`
+3. Create tunnel: `cloudflared tunnel create engram-api`
+4. Route traffic: `cloudflared tunnel route dns engram-api api.yourdomain.com`
+5. Run it: `cloudflared tunnel run --url http://localhost:8000 engram-api`
 
 ---
 
-## 3️⃣ Linking the Architecture
+## 5️⃣ Linking the Architecture
 
 For the app to work, the frontend must know where the API is, and the API must allow the frontend to talk to it (CORS).
 
@@ -74,7 +98,7 @@ For the app to work, the frontend must know where the API is, and the API must a
 ### B. Whitelist Frontend in Backend
 1. Go to your **Render Service Dashboard**.
 2. Go to **Environment**.
-3. Update `FRONTEND_URL` to match your actual Netlify URL (e.g., `https://creative-engram-123.netlify.app`).
+3. Update `FRONTEND_URL` to match your actual Cloudflare/Netlify URL (e.g., `https://engram.pages.dev`).
 
 ---
 
