@@ -54,7 +54,7 @@ const isLocal = window.location.hostname === 'localhost' ||
 
 const API_BASE = isLocal
   ? `http://${window.location.hostname}:8000`
-  : "https://engram-backend.onrender.com";
+  : "https://engram-backend.onrender.com"; // Change this if your Render service name is different
 
 
 // --- API CLIENT ---
