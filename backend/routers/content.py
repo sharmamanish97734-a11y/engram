@@ -132,7 +132,12 @@ def generate_syllabus(data: SyllabusGenerateRequest, db: Session = Depends(get_d
     
     # 1. Call LLM to generate the hierarchy
     try:
-        syllabus_data = groq_generator.generate_syllabus(data.subject)
+        syllabus_data = groq_generator.generate_syllabus(
+            data.subject,
+            num_subtopics=data.num_subtopics,
+            cards_per_topic=data.cards_per_topic,
+            mcqs_per_topic=data.mcqs_per_topic
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI Generation failed: {str(e)}")
     

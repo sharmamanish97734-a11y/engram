@@ -30,4 +30,6 @@ alembic.ini
 alembic/
 scratch/
 
-backend/services/groq_generator.py
+backend/services/groq_generator.pycloudflared
+*.pid
+*.log

@@ -7,7 +7,7 @@ const useStore = (store, selector) => {
 };
 
 // --- GLOBAL DESTRUCTURING ---
-const { useState, useEffect, useMemo, useCallback, useSyncExternalStore } = React;
+const { useState, useEffect, useMemo, useCallback, useSyncExternalStore, useRef } = React;
 
 // --- SIMPLE HASH ROUTER (no external dependency) ---
 const routerStore = window.createStore((set) => ({
@@ -43,9 +43,11 @@ const Icon = ({ name, className = "inline-block w-5 h-5", style }) => {
   return <span className={className} style={style}>{iconMap[name] || '•'}</span>;
 }
 
-const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '0.0.0.0'
-  ? "http://localhost:8000"
-  : "https://your-app.onrender.com";
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.');
+const API_BASE = isLocal
+  ? `http://${window.location.hostname}:8000`
+  : "https://engram-backend.onrender.com";
+
 
 // --- API CLIENT ---
 const api = axios.create({ baseURL: API_BASE });
@@ -346,7 +348,8 @@ const Topics = () => {
       setSubject("");
       refetch();
     } catch (err) {
-      alert("AI Generation failed. Please check your Groq API key in .env");
+      const errorMsg = err.response?.data?.detail || err.message;
+      alert(`AI Generation failed: ${errorMsg}\nCheck API limits or logs.`);
     } finally {
       setIsGenerating(false);
     }
@@ -540,6 +543,21 @@ const Learn = ({ id }) => {
     const [flipped, setFlipped] = useState(false);
     const [hint, setHint] = useState(null);
     const [isHinting, setIsHinting] = useState(false);
+
+    // Swipe & Drag State
+    const [translateX, setTranslateX] = useState(0);
+    const [translateY, setTranslateY] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
+    const [swipeStatus, setSwipeStatus] = useState(null); 
+    
+    // Deep Dive Drawer State
+    const [deepDive, setDeepDive] = useState(null);
+    const [isDeepDiving, setIsDeepDiving] = useState(false);
+    const [showDeepDiveDrawer, setShowDeepDiveDrawer] = useState(false);
+
+    // Persistent drag tracking object without triggering renders on every micro-move calculation
+    const dragState = useRef({ isDragging: false, startX: 0, startY: 0, currentX: 0, currentY: 0, startFlipped: false });
+
     const { data: cards, isLoading } = useQuery({ 
         queryKey: ['cards', id, window.location.hash.includes('all=true')], 
         queryFn: () => {
@@ -547,6 +565,14 @@ const Learn = ({ id }) => {
             return api.get(`/topics/${id}/cards${isAll ? '?all=true' : ''}`).then(r => r.data);
         }
     });
+
+    const resetPosition = () => {
+        setTranslateX(0);
+        setTranslateY(0);
+        setSwipeStatus(null);
+        setIsDragging(false);
+        dragState.current.isDragging = false;
+    };
 
     const getHint = async (e) => {
         e.stopPropagation();
@@ -563,7 +589,23 @@ const Learn = ({ id }) => {
         }
     };
 
+    const triggerDeepDive = async () => {
+        setShowDeepDiveDrawer(true);
+        if (deepDive) return;
+        setIsDeepDiving(true);
+        try {
+            const card = cards[currentIndex];
+            const res = await api.post('/ai/deep-dive', { title: card.title, content: card.content });
+            setDeepDive(res.data.explanation);
+        } catch (err) {
+            setDeepDive("Failed to dive deeper. Please try again.");
+        } finally {
+            setIsDeepDiving(false);
+        }
+    };
+
     const rateCard = async (rating) => {
+        resetPosition();
         const card_id = cards[currentIndex].card_id;
         try {
             await api.post('/card/rate', { card_id, rating });
@@ -571,6 +613,8 @@ const Learn = ({ id }) => {
             if (currentIndex < cards.length - 1) {
                 setFlipped(false);
                 setHint(null);
+                setDeepDive(null);
+                setShowDeepDiveDrawer(false);
                 setCurrentIndex(i => i + 1);
             } else {
                 navigate('/topics');
@@ -580,56 +624,213 @@ const Learn = ({ id }) => {
         }
     };
 
+    // --- Gesture Event Handlers ---
+    const handlePointerDown = (e) => {
+        if (showDeepDiveDrawer) return; // Disable swipe if reading details
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        dragState.current = { 
+            isDragging: true, 
+            startX: clientX, 
+            startY: clientY, 
+            currentX: clientX, 
+            currentY: clientY,
+            startFlipped: flipped
+        };
+        setIsDragging(true);
+    };
+
+    const handlePointerMove = (e) => {
+        if (!dragState.current.isDragging) return;
+        
+        // Prevent default scrolling on mobile while swiping cards
+        if (e.cancelable) e.preventDefault();
+
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        
+        const deltaX = clientX - dragState.current.startX;
+        const deltaY = clientY - dragState.current.startY;
+        
+        dragState.current.currentX = clientX;
+        dragState.current.currentY = clientY;
+        
+        setTranslateX(deltaX);
+        setTranslateY(deltaY);
+
+        // Visual intent thresholds
+        const swipeThreshold = 80;
+        if (deltaX < -swipeThreshold) setSwipeStatus('hard');
+        else if (deltaX > swipeThreshold) setSwipeStatus('good');
+        else if (deltaY < -swipeThreshold && Math.abs(deltaY) > Math.abs(deltaX)) setSwipeStatus('deep-dive');
+        else setSwipeStatus(null);
+    };
+
+    const handlePointerUp = () => {
+        if (!dragState.current.isDragging) return;
+        dragState.current.isDragging = false;
+        setIsDragging(false);
+
+        const deltaX = translateX;
+        const deltaY = translateY;
+        const swipeThreshold = 100;
+
+        // Action thresholds
+        if (deltaX < -swipeThreshold) {
+            // Toss left
+            setTranslateX(-window.innerWidth * 1.5);
+            setTimeout(() => rateCard(1), 250); // Hard
+        } else if (deltaX > swipeThreshold) {
+            // Toss right
+            setTranslateX(window.innerWidth * 1.5);
+            setTimeout(() => rateCard(2), 250); // Good
+        } else if (deltaY < -swipeThreshold && Math.abs(deltaY) > Math.abs(deltaX)) {
+            // Toss up
+            triggerDeepDive();
+            resetPosition();
+        } else {
+            // Tap check (if barely moved)
+            if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
+                setFlipped(!dragState.current.startFlipped);
+            }
+            resetPosition(); // snap back
+        }
+    };
+
     if (isLoading) return <Layout><div className="flex flex-col items-center justify-center p-12 text-gray-400">Loading cards...</div></Layout>;
     if (!cards || cards.length === 0) return <Layout><div className="p-12 text-center text-gray-400">No cards in this topic.</div></Layout>;
 
     const card = cards[currentIndex];
+    
+    // Dynamic Rotation: Rotate up to 15 degrees based on drag distance
+    const rotate = (translateX / window.innerWidth) * 20; 
 
     return (
         <Layout>
-            <div className="flex items-center justify-between mt-4 mb-6">
+            <div className="flex items-center justify-between mt-4 mb-6 relative z-10">
                 <button onClick={() => navigate('/topics')} className="text-gray-400 hover:text-white bg-surface p-2 rounded-lg border border-gray-800"><Icon name="arrow-left" /></button>
                 <div className="text-sm font-bold text-gray-400">{currentIndex + 1} / {cards.length}</div>
             </div>
 
-            <div className="w-full h-80 cursor-pointer group" onClick={() => setFlipped(!flipped)}>
-                {!flipped ? (
-                    <div className="w-full h-full bg-gradient-to-br from-surface to-[#1A1A24] border border-primary/30 rounded-3xl p-6 flex flex-col justify-center text-center shadow-xl">
-                         <div className="uppercase text-xs font-bold tracking-widest text-primary mb-4">{card.type}</div>
-                         <h2 className="text-2xl font-bold text-white leading-snug">{card.title}</h2>
-                         
-                         {/* AI Hint Section */}
-                         <div className="mt-4 min-h-[40px] flex items-center justify-center">
-                            {!hint && !isHinting ? (
-                                <button onClick={getHint} className="text-[10px] font-bold text-primary/60 hover:text-primary transition-all flex items-center gap-1.5 mx-auto bg-primary/5 px-3 py-1.5 rounded-full border border-primary/10 hover:border-primary/30">
-                                    <Icon name="lightbulb" className="w-3 h-3" /> Get AI Hint
-                                </button>
-                            ) : isHinting ? (
-                                <Skeleton className="h-4 w-24 mx-auto" />
+            {/* Deep Dive Drawer */}
+            {showDeepDiveDrawer && (
+                <div className="absolute inset-0 z-50 bg-[#0A0A0F]/95 backdrop-blur-md flex flex-col pt-12 animate-in slide-in-from-bottom-full duration-500">
+                     <div className="p-6 flex-1 flex flex-col h-full">
+                        <button onClick={() => setShowDeepDiveDrawer(false)} className="text-gray-400 hover:text-white mb-6 p-2 rounded-lg border border-gray-800 bg-surface flex items-center gap-2 self-start">
+                             <Icon name="arrow-down-left" /> Back to Card
+                        </button>
+                        <h2 className="text-2xl font-bold text-white mb-4">Deep Dive: {card.title}</h2>
+                        <div className="flex-1 overflow-y-auto pr-2 pb-12 custom-scrollbar">
+                            {isDeepDiving ? (
+                                <div className="flex flex-col gap-3">
+                                    <Skeleton className="h-4 w-full" />
+                                    <Skeleton className="h-4 w-11/12" />
+                                    <Skeleton className="h-4 w-4/5" />
+                                    <Skeleton className="h-4 w-full mt-4" />
+                                    <Skeleton className="h-4 w-10/12" />
+                                </div>
                             ) : (
-                                <div className="text-[11px] text-gray-400 italic bg-[#0A0A0F]/50 p-2.5 px-4 rounded-xl border border-gray-800 animate-in fade-in slide-in-from-top-1 duration-300 mx-6">
-                                    {hint}
+                                <div className="text-gray-300 leading-relaxed space-y-4">
+                                    {deepDive?.split('\n').map((para, i) => para.trim() ? <p key={i}>{para}</p> : null)}
                                 </div>
                             )}
-                         </div>
-
-                         <div className="mt-8 text-sm text-gray-500 flex items-center justify-center gap-1"><Icon name="rotate-cw" /> Tap to flip</div>
-                    </div>
-                ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-indigo-900/40 to-surface border border-primary/50 text-white rounded-3xl p-6 flex flex-col shadow-xl overflow-y-auto justify-center text-center">
-                        <p className="text-lg leading-relaxed">{card.content}</p>
-                    </div>
-                )}
-            </div>
-
-            {flipped && (
-                <div className="flex justify-between gap-3 mt-8">
-                     <button onClick={(e) => { e.stopPropagation(); rateCard(0); }} className="flex-1 bg-surface border border-gray-800 py-3 rounded-xl text-rose-500 font-bold active:bg-rose-500 active:text-white transition-colors">Skip</button>
-                     <button onClick={(e) => { e.stopPropagation(); rateCard(1); }} className="flex-1 bg-surface border border-gray-800 py-3 rounded-xl text-orange-500 font-bold active:bg-orange-500 active:text-white transition-colors">Hard</button>
-                     <button onClick={(e) => { e.stopPropagation(); rateCard(2); }} className="flex-1 bg-surface border border-gray-800 py-3 rounded-xl text-blue-500 font-bold active:bg-blue-500 active:text-white transition-colors">Good</button>
-                     <button onClick={(e) => { e.stopPropagation(); rateCard(3); }} className="flex-1 bg-surface border border-gray-800 py-3 rounded-xl text-emerald-500 font-bold active:bg-emerald-500 active:text-white transition-colors">Easy</button>
+                        </div>
+                     </div>
                 </div>
             )}
+
+            {/* Swipeable Card Area */}
+            <div className="relative w-full h-[26rem] sm:h-[28rem] flex items-center justify-center touch-none select-none">
+                
+                {/* Visual Stack Background Card */}
+                {currentIndex < cards.length - 1 && (
+                    <div className="absolute w-full h-full bg-surface border border-gray-800 rounded-3xl opacity-40 scale-[0.92] -z-10 translate-y-6"></div>
+                )}
+                {currentIndex < cards.length - 2 && (
+                    <div className="absolute w-full h-full bg-surface border border-gray-800 rounded-3xl opacity-20 scale-[0.85] -z-20 translate-y-12"></div>
+                )}
+
+                {/* The Active Card */}
+                <div 
+                    className="absolute w-full h-full group shadow-2xl rounded-3xl cursor-grab active:cursor-grabbing" 
+                    style={{ 
+                        transform: `translate(${translateX}px, ${translateY}px) rotate(${rotate}deg)`,
+                        transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                        zIndex: 20
+                    }}
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    onPointerLeave={handlePointerUp}
+                    // For mobile
+                    onPointerCancel={handlePointerUp}
+                >
+                    {/* Visual Stamp Overlays */}
+                    {swipeStatus === 'hard' && <div className="absolute top-8 right-8 z-30 border-4 border-rose-500 text-rose-500 font-black text-3xl px-4 py-1 rounded-xl uppercase rotate-12 bg-[#1A1A24]/90 backdrop-blur shadow-2xl">Hard</div>}
+                    {swipeStatus === 'good' && <div className="absolute top-8 left-8 z-30 border-4 border-emerald-500 text-emerald-500 font-black text-3xl px-4 py-1 rounded-xl uppercase -rotate-12 bg-[#1A1A24]/90 backdrop-blur shadow-2xl">Good</div>}
+                    {swipeStatus === 'deep-dive' && <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-30 border-4 border-primary text-primary font-black text-2xl px-6 py-2 rounded-xl uppercase bg-[#1A1A24]/90 backdrop-blur shrink-0 min-w-max shadow-2xl animate-pulse">✨ Deep Dive</div>}
+
+                    {!flipped ? (
+                        <div className="w-full h-full bg-gradient-to-br from-surface to-[#1A1A24] border border-primary/30 rounded-3xl p-6 flex flex-col justify-center text-center shadow-[0_0_40px_rgba(99,102,241,0.05)]">
+                             <div className="absolute top-6 left-6 right-6 flex justify-between items-center text-xs font-bold tracking-widest text-primary">
+                                <span className="uppercase">{card.type}</span>
+                                <Icon name="lightbulb" className="text-gray-600 w-4 h-4" />
+                             </div>
+
+                             <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug my-12">{card.title}</h2>
+                             
+                             {/* AI Hint Section */}
+                             <div className="min-h-[40px] flex items-center justify-center z-40 relative">
+                                {!hint && !isHinting ? (
+                                    <button 
+                                        onPointerDown={(e) => e.stopPropagation()} // Stop drag when clicking hint
+                                        onClick={getHint} 
+                                        className="text-[10px] font-bold text-primary/60 hover:text-primary transition-all flex items-center gap-1.5 bg-primary/5 px-3 py-1.5 rounded-full border border-primary/10 hover:border-primary/30"
+                                    >
+                                        <Icon name="lightbulb" className="w-3 h-3" /> Get Hint
+                                    </button>
+                                ) : isHinting ? (
+                                    <Skeleton className="h-4 w-24 mx-auto" />
+                                ) : (
+                                    <div className="text-[12px] sm:text-sm text-gray-400 italic bg-[#0A0A0F]/80 p-3 px-5 rounded-2xl border border-gray-800 animate-in fade-in slide-in-from-bottom-2 duration-300 mx-4">
+                                        {hint}
+                                    </div>
+                                )}
+                             </div>
+
+                             {/* Helper Text */}
+                             <div className="absolute bottom-6 w-full left-0 text-[10px] sm:text-xs text-gray-500 flex flex-col items-center justify-center gap-2 pointer-events-none">
+                                <div className="flex gap-4">
+                                    <span className="flex items-center gap-1"><Icon name="arrow-left" className="w-3 h-3"/> Swipe Hard</span>
+                                    <span className="flex items-center gap-1">Swipe Good <Icon name="arrow-left" className="w-3 h-3 rotate-180"/></span>
+                                </div>
+                                <span className="flex items-center gap-1 font-semibold text-primary/60 animate-pulse mt-1">
+                                    <Icon name="arrow-left" className="w-3 h-3 rotate-90"/> Swipe Up for Deep Dive
+                                </span>
+                             </div>
+                        </div>
+                    ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-indigo-900/40 to-surface border border-primary/50 text-white rounded-3xl p-6 flex flex-col overflow-y-auto text-center justify-center relative shadow-[0_0_50px_rgba(99,102,241,0.15)]">
+                            <p className="text-xl leading-relaxed py-8">
+                                {card.content}
+                            </p>
+                             <div className="absolute bottom-6 w-full left-0 text-[10px] sm:text-xs text-gray-500 flex flex-col items-center justify-center gap-2 pointer-events-none">
+                                <span className="flex items-center gap-1 font-semibold text-primary/60 animate-pulse">
+                                    <Icon name="arrow-left" className="w-3 h-3 rotate-90"/> Swipe Up for Deep Dive
+                                </span>
+                             </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Exact Control Buttons (Always shown below card like dating apps usually have buttons too) */}
+            <div className="flex justify-between gap-2 sm:gap-3 mt-8 relative z-10 transition-opacity duration-300" style={{ opacity: isDragging ? 0.3 : 1 }}>
+                    <button onClick={() => rateCard(0)} className="flex-1 bg-surface border border-gray-800 py-3 sm:py-4 rounded-xl text-rose-500 font-bold active:bg-rose-500 active:text-white transition-colors text-xs sm:text-sm">Skip</button>
+                    <button onClick={() => { setTranslateX(-window.innerWidth); setTimeout(()=>rateCard(1),200); }} className="flex-1 bg-surface border border-gray-800 py-3 sm:py-4 rounded-xl text-orange-500 font-bold active:bg-orange-500 active:text-white transition-colors text-xs sm:text-sm">Hard</button>
+                    <button onClick={() => { setTranslateX(window.innerWidth); setTimeout(()=>rateCard(2),200); }} className="flex-1 bg-surface border border-gray-800 py-3 sm:py-4 rounded-xl text-blue-500 font-bold active:bg-blue-500 active:text-white transition-colors text-xs sm:text-sm">Good</button>
+                    <button onClick={() => rateCard(3)} className="flex-1 bg-surface border border-gray-800 py-3 sm:py-4 rounded-xl text-emerald-500 font-bold active:bg-emerald-500 active:text-white transition-colors text-xs sm:text-sm">Easy</button>
+            </div>
         </Layout>
     );
 };

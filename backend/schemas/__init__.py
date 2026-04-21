@@ -142,6 +142,10 @@ class AIHintRequest(BaseModel):
     question: str
     options: List[str]
 
+class AIDeepDiveRequest(BaseModel):
+    title: str
+    content: str
+
 class AIGenerateCardsRequest(BaseModel):
     topic_id: str
     topic_name: str
@@ -156,4 +160,6 @@ class AIAnalyzeRequest(BaseModel):
 
 class SyllabusGenerateRequest(BaseModel):
     subject: str
-
+    num_subtopics: int = 5
+    cards_per_topic: int = 8
+    mcqs_per_topic: int = 5

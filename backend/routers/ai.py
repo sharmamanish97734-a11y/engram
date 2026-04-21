@@ -8,7 +8,7 @@ from sqlalchemy import desc
 from database import get_db
 from models import Topic, Card, MCQ, UserPerformance, AnswerLog
 from schemas import (
-    AIExplainRequest, AIHintRequest, AIGenerateCardsRequest, 
+    AIExplainRequest, AIHintRequest, AIDeepDiveRequest, AIGenerateCardsRequest, 
     AIGenerateMCQRequest, AIAnalyzeRequest, CardOut, MCQOut
 )
 from services.ai_service import ai_service
@@ -29,6 +29,12 @@ def hint(data: AIHintRequest, db: Session = Depends(get_db)):
     """Get a subtle hint for a question."""
     hint_text = ai_service.get_hint(db, data.question, data.options)
     return {"hint": hint_text}
+
+@router.post("/deep-dive")
+def deep_dive(data: AIDeepDiveRequest, db: Session = Depends(get_db)):
+    """Get a comprehensive explanation for a flashcard concept."""
+    explanation = ai_service.deep_dive(db, data.title, data.content)
+    return {"explanation": explanation}
 
 @router.post("/generate-cards", response_model=List[CardOut])
 def generate_cards(data: AIGenerateCardsRequest, db: Session = Depends(get_db)):

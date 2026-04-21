@@ -98,6 +98,24 @@ class AIService:
         self._save_to_cache(db, cache_key, response)
         return response
 
+    def deep_dive(self, db: Session, title: str, content: str) -> str:
+        params = {"title": title, "content": content}
+        cache_key = self._generate_cache_key("deep_dive", params)
+        
+        cached = self._get_from_cache(db, cache_key)
+        if cached:
+            return cached
+
+        messages = [
+            {"role": "system", "content": "You are an expert tutor. Provide an extremely detailed, comprehensive explanation (a 'Deep Dive') of the given concept. Break it down with analogies, context, and examples. Use Hinglish (a natural, conversational mix of Hindi and English)."},
+            {"role": "user", "content": f"Concept: {title}\nCurrent summary: {content}\n\nPlease explain this in extreme depth."}
+        ]
+        
+        response = self._call_groq(self.versatile_model, messages)
+        self._save_to_cache(db, cache_key, response)
+        return response
+
+
     def generate_cards(self, db: Session, topic: str, count: int = 10) -> List[Dict[str, Any]]:
         params = {"topic": topic, "count": count}
         cache_key = self._generate_cache_key("generate_cards", params)
