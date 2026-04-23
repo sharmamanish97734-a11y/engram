@@ -456,7 +456,7 @@ const Topics = () => {
           <div className="bg-primary/20 text-primary p-2 rounded-xl group-hover:scale-110 transition-transform">
             <Icon name="wand" className="w-5 h-5" />
           </div>
-          <span className="font-bold text-primary">Generate New Syllabus with Groq AI</span>
+          <span className="font-bold text-primary">Generate New Syllabus with AI</span>
           <Icon name="sparkles" className="text-primary/50" />
         </button>
       )}
@@ -627,7 +627,7 @@ const Topics = () => {
               <Icon name="wand" className="absolute inset-0 m-auto w-8 h-8 text-primary animate-pulse" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-white mb-2">Groq AI is designing...</h3>
+              <h3 className="text-xl font-bold text-white mb-2">AI is designing...</h3>
               <p className="text-gray-400 text-sm italic">Building subtopics, flashcards, and quiz questions for "{subject}"</p>
             </div>
             <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
@@ -680,7 +680,7 @@ const Topics = () => {
 
             <div className="pt-4 border-t border-gray-800/50">
               <Button onClick={handleGenerate} disabled={!subject}>Start Generation</Button>
-              <p className="text-[10px] text-gray-500 mt-4 text-center">Powered by Llama-3.3-70B on Groq</p>
+              <p className="text-[10px] text-gray-500 mt-4 text-center italic opacity-50">Designing personalized learning path...</p>
             </div>
           </div>
         )}
