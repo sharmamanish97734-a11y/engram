@@ -319,9 +319,6 @@ const Home = () => {
                      <li key={i} className="flex gap-3 text-gray-400 text-[13px]">
                         <span className="text-primary font-bold">0{i+1}.</span> {s}
                      </li>
-                   ))}
-                 </ul>
-               </section>
                <Button onClick={() => setShowModal(false)} variant="secondary" className="mt-4 !py-2.5 !text-sm">Close Analysis</Button>
               </div>
             )}
@@ -340,6 +337,11 @@ const Topics = () => {
   const [activeSyllabusId, setActiveSyllabusId] = useState(null);
   const activeSyllabus = useMemo(() => data?.find(t => t.id === activeSyllabusId), [data, activeSyllabusId]);
 
+  // Suggestions State
+  const [suggestions, setSuggestions] = useState([]);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [isExtending, setIsExtending] = useState(null);
+
   // AISyllabus Generation State
   const [showModal, setShowModal] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -349,6 +351,46 @@ const Topics = () => {
   // Selection State
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
+
+  // Load suggestions when syllabus opens
+  useEffect(() => {
+    if (activeSyllabus) {
+      const existing = data.filter(t => t.parent_id === activeSyllabus.id).map(t => t.name);
+      loadSuggestions(activeSyllabus.name, existing);
+    }
+  }, [activeSyllabusId]);
+
+  const loadSuggestions = async (subj, existing) => {
+    setIsSuggesting(true);
+    try {
+      const res = await api.post('/syllabus/suggest', { subject: subj, existing_topics: existing });
+      setSuggestions(res.data.suggestions);
+    } catch (err) {
+      console.error("Failed to load suggestions");
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
+
+  const handleExtend = async (topicName) => {
+    setIsExtending(topicName);
+    try {
+      await api.post('/syllabus/extend', {
+        parent_id: activeSyllabusId,
+        subject: activeSyllabus.name,
+        topics: [topicName],
+        cards_per_topic: 8,
+        mcqs_per_topic: 5
+      });
+      refetch();
+      // Remove from suggestions
+      setSuggestions(prev => prev.filter(s => s.name !== topicName));
+    } catch (err) {
+      alert("Failed to add topic");
+    } finally {
+      setIsExtending(null);
+    }
+  };
 
   const toggleSelect = (id) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -369,19 +411,6 @@ const Topics = () => {
     }
   };
 
-  const handleDeleteSingle = async (e, topic) => {
-    e.stopPropagation();
-    if (confirm(`Delete "${topic.name}" and all its content?`)) {
-      try {
-        await api.delete(`/topics/${topic.topic_id}`);
-        if (activeSyllabusId === topic.id) setActiveSyllabusId(null);
-        refetch();
-      } catch (err) {
-        alert("Failed to delete topic.");
-      }
-    }
-  };
-
   const handleGenerate = async () => {
     if (!subject) return;
     setIsGenerating(true);
@@ -397,7 +426,7 @@ const Topics = () => {
       refetch();
     } catch (err) {
       const errorMsg = err.response?.data?.detail || err.message;
-      alert(`AI Generation failed: ${errorMsg}\nCheck API limits or logs.`);
+      alert(`AI Generation failed: ${errorMsg}`);
     } finally {
       setIsGenerating(false);
     }
@@ -405,7 +434,7 @@ const Topics = () => {
 
   const handleReset = async (e, topic) => {
     e.stopPropagation();
-    if (confirm(`Are you sure you want to reset all progress for "${topic.name}"? This cannot be undone.`)) {
+    if (confirm(`Are you sure you want to reset all progress for "${topic.name}"?`)) {
       try {
         await api.post(`/topics/${topic.topic_id}/reset`);
         refetch();
@@ -413,16 +442,6 @@ const Topics = () => {
         alert("Failed to reset progress.");
       }
     }
-  };
-
-  const formatLastStudied = (dateStr) => {
-    if (!dateStr) return 'Never';
-    const date = new Date(dateStr);
-    const diff = (new Date() - date) / 1000;
-    if (diff < 60) return 'Just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return `${Math.floor(diff / 86400)}d ago`;
   };
 
   return (
@@ -470,18 +489,15 @@ const Topics = () => {
           {!activeSyllabusId ? (
             // SYLLABUS LIST VIEW
             <div className="grid grid-cols-1 gap-4">
-              {data?.filter(t => !t.parent_id).map((syllabus, i) => {
+              {data?.filter(t => !t.parent_id).map((syllabus) => {
                 const subtopics = data.filter(t => t.parent_id === syllabus.id);
                 const isSelected = selectedIds.includes(syllabus.topic_id);
-                
                 return (
                   <div key={syllabus.id} 
                     onClick={() => isSelectionMode ? toggleSelect(syllabus.topic_id) : setActiveSyllabusId(syllabus.id)}
                     className={`group bg-surface border rounded-3xl p-6 transition-all relative cursor-pointer overflow-hidden ${isSelected ? 'border-primary bg-primary/5' : 'border-gray-800 hover:border-primary/50 hover:bg-[#1A1A24]'}`}
                   >
-                    {/* Folder-like visual background */}
                     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl transition-opacity group-hover:opacity-100 opacity-50"></div>
-                    
                     <div className="flex justify-between items-start relative z-10">
                       <div>
                         <div className="flex items-center gap-2 mb-2">
@@ -491,197 +507,103 @@ const Topics = () => {
                         <h3 className="text-xl font-bold text-white mb-1">{syllabus.name}</h3>
                         <p className="text-sm text-gray-500 line-clamp-1">{syllabus.description || 'AI Generated Syllabus'}</p>
                       </div>
-                      
-                      {isSelectionMode ? (
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-primary border-primary' : 'border-gray-700'}`}>
-                          {isSelected && <Icon name="check-circle" className="text-white w-4 h-4" />}
-                        </div>
-                      ) : (
-                        <div className="text-right">
-                           <div className="text-2xl font-black text-white/20 group-hover:text-primary/40 transition-colors">{subtopics.length}</div>
-                           <div className="text-[8px] font-bold text-gray-600 uppercase tracking-tighter">Topics</div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-6 flex items-center justify-between relative z-10">
-                       <div className="flex -space-x-2">
-                          {[1,2,3].map(x => <div key={x} className="w-6 h-6 rounded-full border-2 border-surface bg-gray-800 flex items-center justify-center text-[10px] text-gray-500 uppercase font-black"><Icon name="brain" className="w-3 h-3" /></div>)}
-                       </div>
-                       <div className="text-xs font-bold text-gray-400 group-hover:text-primary transition-colors flex items-center gap-1">
-                          Open Library <Icon name="arrow-up-right" className="w-3 h-3" />
-                       </div>
+                      <div className="text-right">
+                         <div className="text-2xl font-black text-white/20 group-hover:text-primary/40 transition-colors">{subtopics.length}</div>
+                         <div className="text-[8px] font-bold text-gray-600 uppercase tracking-tighter">Topics</div>
+                      </div>
                     </div>
                   </div>
                 );
               })}
             </div>
           ) : (
-            // SUBTOPICS VIEW (DRILL-DOW)
+            // SUBTOPICS VIEW
             <div className="animate-in fade-in slide-in-from-right-4 duration-300">
                <div className="mb-6 p-4 bg-primary/5 rounded-2xl border border-primary/20 flex flex-col gap-1">
                   <span className="text-[10px] font-black text-primary uppercase tracking-widest leading-none">Exploring Syllabus</span>
                   <div className="text-sm text-gray-400 leading-relaxed italic line-clamp-2">
-                    {activeSyllabus?.description || "Select a subtopic below to start learning or take a quiz."}
+                    {activeSyllabus?.description || "Select a subtopic below to start learning."}
                   </div>
                </div>
 
                <div className="space-y-4">
-                  {data.filter(t => t.parent_id === activeSyllabusId).map((topic, j) => {
+                  {data.filter(t => t.parent_id === activeSyllabusId).map((topic) => {
                      const totalCards = topic.card_count + topic.mcq_count;
                      const learnedPercent = totalCards > 0 ? (topic.learned_count / totalCards) * 100 : 0;
                      const masteryColor = topic.mastery_percent > 80 ? 'text-emerald-400' : topic.mastery_percent > 40 ? 'text-blue-400' : 'text-gray-400';
-                     const isSelected = selectedIds.includes(topic.topic_id);
-
                      return (
-                       <div key={topic.id} 
-                         onClick={() => isSelectionMode && toggleSelect(topic.topic_id)}
-                         className={`bg-surface border rounded-2xl p-5 transition-all relative ${isSelected ? 'border-primary bg-primary/5' : 'border-gray-800 hover:bg-[#13111C]/50'} ${isSelectionMode ? 'cursor-pointer' : ''}`}
-                       >
+                       <div key={topic.id} className="bg-surface border border-gray-800 rounded-2xl p-5 relative">
                           <div className="flex justify-between items-start mb-4">
-                            <div className="flex flex-col">
-                              <span className="text-[10px] uppercase font-black tracking-widest text-gray-500 mb-1">{topic.category || 'Topic'}</span>
-                              <h3 className="font-bold text-lg text-white leading-tight">{topic.name}</h3>
-                            </div>
-                            {!isSelectionMode && (
-                              <div className="flex flex-col items-end">
+                            <h3 className="font-bold text-lg text-white leading-tight">{topic.name}</h3>
+                            <div className="flex flex-col items-end">
                                 <div className={`text-xl font-black ${masteryColor}`}>{topic.mastery_percent}%</div>
                                 <div className="text-[8px] uppercase font-bold text-gray-500 tracking-tighter">Mastery</div>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div className="mb-4">
-                            <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1.5">
-                              <span>{topic.learned_count} / {totalCards} LEARNED</span>
-                              <span>{topic.due_count} DUE</span>
-                            </div>
-                            <div className="h-2 bg-gray-900 rounded-full overflow-hidden flex border border-gray-800/50">
-                              <div className="h-full bg-primary" style={{width: `${learnedPercent}%`}}></div>
                             </div>
                           </div>
-
-                          <div className="grid grid-cols-2 gap-3 mb-5">
-                            <div className="bg-[#0A0A0F]/50 rounded-xl p-2.5 border border-gray-800/50">
-                               <div className="text-[9px] text-gray-500 font-bold uppercase mb-0.5">Last Studied</div>
-                               <div className="text-xs text-gray-300 flex items-center gap-1.5 font-medium">
-                                 <Icon name="history" className="w-3 h-3 opacity-50" /> {formatLastStudied(topic.last_studied)}
-                               </div>
-                            </div>
-                            <div className="bg-[#0A0A0F]/50 rounded-xl p-2.5 border border-gray-800/50">
-                               <div className="text-[9px] text-gray-500 font-bold uppercase mb-0.5">Next Session</div>
-                               <div className="text-xs text-gray-300 flex items-center gap-1.5 font-medium">
-                                 <Icon name="clock" className="w-3 h-3 opacity-50" /> {topic.next_session_minutes} min
-                               </div>
-                            </div>
+                          <div className="h-2 bg-gray-900 rounded-full overflow-hidden border border-gray-800/50 mb-5">
+                             <div className="h-full bg-primary" style={{width: `${learnedPercent}%`}}></div>
                           </div>
-
                           <div className="flex gap-2">
-                             <button onClick={() => navigate(`/learn/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-white bg-primary hover:bg-primaryFocus py-2.5 rounded-xl transition-all shadow-lg shadow-primary/10">Study Due</button>
-                             <button onClick={() => navigate(`/quiz/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-black bg-white hover:bg-gray-200 py-2.5 rounded-xl transition-all">Quiz</button>
-                             <div className="flex gap-1 bg-gray-900/50 p-1 rounded-xl border border-gray-800">
-                                <button title="Regenerate" onClick={(e) => { e.stopPropagation(); setSubject(topic.name); setShowModal(true); }} className="p-2 text-primary/60 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"><Icon name="wand" className="w-4 h-4" /></button>
-                                <button title="Review All" onClick={() => navigate(`/learn/${topic.topic_id}?all=true`)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"><Icon name="refresh-cw" className="w-4 h-4" /></button>
-                                <button title="Reset Progress" onClick={(e) => handleReset(e, topic)} className="p-2 text-gray-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"><Icon name="trash-2" className="w-4 h-4" /></button>
-                             </div>
+                             <button onClick={() => navigate(`/learn/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-white bg-primary py-2.5 rounded-xl">Study</button>
+                             <button onClick={() => navigate(`/quiz/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-black bg-white py-2.5 rounded-xl">Quiz</button>
+                             <button onClick={(e) => handleReset(e, topic)} className="p-2.5 text-gray-500 hover:text-rose-500 bg-gray-900 rounded-xl"><Icon name="trash-2" className="w-4 h-4" /></button>
                           </div>
                        </div>
                      )
                   })}
-                  {data.filter(t => t.parent_id === activeSyllabusId).length === 0 && (
-                     <div className="text-center p-12 text-gray-500 border border-dashed border-gray-800 rounded-3xl">
-                        <Icon name="book" className="w-10 h-10 mb-4 opacity-20 mx-auto" />
-                        <p>No content in this syllabus yet.</p>
-                     </div>
-                  )}
+
+                  <div className="mt-12 bg-[#0F0F15] rounded-3xl p-6 border border-gray-800/50">
+                     <h4 className="text-[10px] font-black uppercase tracking-widest text-primary mb-4 flex items-center gap-2">
+                        <Icon name="sparkles" className="w-3 h-3" /> Recommended for your Path
+                     </h4>
+                     {isSuggesting ? (
+                        <div className="space-y-3">
+                           {[1,2].map(x => <Skeleton key={x} className="h-20 w-full rounded-2xl" />)}
+                        </div>
+                     ) : (
+                        <div className="space-y-3">
+                           {suggestions.map((s, i) => (
+                              <div key={i} className="bg-surface border border-gray-800 p-4 rounded-2xl flex justify-between items-center transition-all hover:border-primary/40">
+                                 <div>
+                                    <div className="font-bold text-gray-200 text-sm">{s.name}</div>
+                                    <div className="text-[10px] text-gray-500 mt-0.5">{s.description}</div>
+                                 </div>
+                                 <button 
+                                    onClick={() => handleExtend(s.name)}
+                                    disabled={!!isExtending}
+                                    className="bg-primary/10 text-primary w-10 h-10 rounded-xl flex items-center justify-center hover:bg-primary hover:text-white transition-all disabled:opacity-30"
+                                 >
+                                    {isExtending === s.name ? <Icon name="loader" className="animate-spin" /> : <Icon name="plus" />}
+                                 </button>
+                              </div>
+                           ))}
+                           <button onClick={() => setShowModal(true)} className="w-full py-4 border border-dashed border-gray-800 rounded-2xl text-[10px] font-bold text-gray-500 uppercase tracking-widest hover:text-white hover:border-gray-700">Add custom subtopic</button>
+                        </div>
+                     )}
+                  </div>
                </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Floating Action Bar for Deletion */}
       {isSelectionMode && selectedIds.length > 0 && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-full max-w-xs z-40 animate-in slide-in-from-bottom-10">
-          <div className="bg-[#1A1A24] border border-rose-500/30 rounded-2xl p-4 shadow-2xl backdrop-blur-xl flex items-center justify-between">
-             <div className="flex flex-col">
-               <span className="text-white font-bold">{selectedIds.length} Selected</span>
-               <span className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">Warning: Irreversible</span>
-             </div>
-             <button 
-               onClick={handleBulkDelete}
-               className="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-rose-500/20"
-             >
-               <Icon name="trash-2" className="w-4 h-4" /> Delete
-             </button>
-          </div>
-        </div>
+         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1A1A24] border border-rose-500/30 rounded-2xl p-4 shadow-2xl flex items-center justify-between min-w-[280px] z-50">
+            <span className="text-white font-bold">{selectedIds.length} Selected</span>
+            <button onClick={handleBulkDelete} className="bg-rose-500 text-white px-5 py-2 rounded-xl font-bold">Delete</button>
+         </div>
       )}
 
-      {/* Generation Modal */}
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="AI Syllabus Generator">
+      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Add to Syllabus">
         {isGenerating ? (
-          <div className="p-12 flex flex-col items-center justify-center text-center space-y-6">
-            <div className="relative">
-              <div className="w-20 h-20 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-              <Icon name="wand" className="absolute inset-0 m-auto w-8 h-8 text-primary animate-pulse" />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white mb-2">AI is designing...</h3>
-              <p className="text-gray-400 text-sm italic">Building subtopics, flashcards, and quiz questions for "{subject}"</p>
-            </div>
-            <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
-               <div className="bg-primary h-full animate-[progress_15s_ease-in-out]"></div>
-            </div>
+          <div className="p-12 text-center space-y-4">
+            <Icon name="loader" className="w-12 h-12 mx-auto animate-spin text-primary" />
+            <div className="font-bold text-white">AI is crafting modules...</div>
           </div>
         ) : (
-          <div className="p-2 space-y-5">
-            <div>
-              <label className="text-[10px] font-black uppercase text-gray-500 mb-2 block tracking-widest">Main Subject</label>
-              <input 
-                type="text" 
-                value={subject} 
-                onChange={e => setSubject(e.target.value)}
-                placeholder="e.g. Computer Vision, Deep Learning"
-                className="w-full bg-[#0A0A0F] border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-primary transition-colors"
-                autoFocus
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="text-[9px] font-black uppercase text-gray-500 mb-1.5 block tracking-tighter">Subtopics</label>
-                <input 
-                  type="number" 
-                  value={counts.subtopics} 
-                  onChange={e => setCounts({...counts, subtopics: e.target.value})}
-                  className="w-full bg-[#0A0A0F] border border-gray-800 rounded-lg px-2 py-2 text-sm text-center"
-                />
-              </div>
-              <div>
-                <label className="text-[9px] font-black uppercase text-gray-500 mb-1.5 block tracking-tighter">Cards/Topic</label>
-                <input 
-                  type="number" 
-                  value={counts.cards} 
-                  onChange={e => setCounts({...counts, cards: e.target.value})}
-                  className="w-full bg-[#0A0A0F] border border-gray-800 rounded-lg px-2 py-2 text-sm text-center"
-                />
-              </div>
-              <div>
-                <label className="text-[9px] font-black uppercase text-gray-500 mb-1.5 block tracking-tighter">MCQs/Topic</label>
-                <input 
-                  type="number" 
-                  value={counts.mcqs} 
-                  onChange={e => setCounts({...counts, mcqs: e.target.value})}
-                  className="w-full bg-[#0A0A0F] border border-gray-800 rounded-lg px-2 py-2 text-sm text-center"
-                />
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-gray-800/50">
-              <Button onClick={handleGenerate} disabled={!subject}>Start Generation</Button>
-              <p className="text-[10px] text-gray-500 mt-4 text-center italic opacity-50">Designing personalized learning path...</p>
-            </div>
+          <div className="p-4 space-y-4">
+             <input type="text" value={subject} onChange={e => setSubject(e.target.value)} placeholder="Topic name..." className="w-full bg-[#0A0A0F] border border-gray-800 rounded-xl px-4 py-3 text-white" />
+             <Button onClick={handleGenerate}>Generate</Button>
           </div>
         )}
       </Modal>

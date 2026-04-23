@@ -131,7 +131,6 @@ def reset_progress(topic_id: str, db: Session = Depends(get_db), user: User = De
 def generate_syllabus(data: SyllabusGenerateRequest, db: Session = Depends(get_db)):
     from services.groq_generator import groq_generator
     
-    # 1. Call LLM to generate the hierarchy
     try:
         syllabus_data = groq_generator.generate_syllabus(
             data.subject,
@@ -142,7 +141,6 @@ def generate_syllabus(data: SyllabusGenerateRequest, db: Session = Depends(get_d
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI Generation failed: {str(e)}")
     
-    # 2. Create Parent Topic
     parent_topic = Topic(
         topic_id=str(uuid.uuid4())[:8],
         name=syllabus_data["name"],
@@ -152,23 +150,46 @@ def generate_syllabus(data: SyllabusGenerateRequest, db: Session = Depends(get_d
     db.add(parent_topic)
     db.flush()
     
-    created_ids = [parent_topic.id]
+    _create_subtopics_from_data(db, parent_topic.id, syllabus_data.get("subtopics", []))
+    db.commit()
+    return {"created_parent_id": parent_topic.id}
+
+@router.post("/syllabus/suggest")
+def suggest_topics(data: SyllabusSuggestRequest, db: Session = Depends(get_db)):
+    from services.groq_generator import groq_generator
+    suggestions = groq_generator.suggest_related_topics(data.subject, data.existing_topics)
+    return {"suggestions": suggestions}
+
+@router.post("/syllabus/extend")
+def extend_syllabus(data: SubtopicExtendRequest, db: Session = Depends(get_db)):
+    from services.groq_generator import groq_generator
     
-    # 3. Create Subtopics and nested content
-    subtopics = syllabus_data.get("subtopics", [])
-    for idx, sub in enumerate(subtopics):
+    try:
+        subtopics_data = groq_generator.generate_subtopics(
+            data.subject,
+            data.topics,
+            cards_per_topic=data.cards_per_topic,
+            mcqs_per_topic=data.mcqs_per_topic
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Extension failed: {str(e)}")
+    
+    _create_subtopics_from_data(db, data.parent_id, subtopics_data)
+    db.commit()
+    return {"status": "success"}
+
+def _create_subtopics_from_data(db: Session, parent_id: int, subtopics_list: list):
+    for idx, sub in enumerate(subtopics_list):
         st = Topic(
             topic_id=str(uuid.uuid4())[:8],
             name=sub["name"],
             description=sub.get("description", ""),
-            parent_id=parent_topic.id,
-            order=idx + 1
+            parent_id=parent_id,
+            order=idx + 100 # Offset for extensions
         )
         db.add(st)
         db.flush()
-        created_ids.append(st.id)
         
-        # Add Flashcards
         for card in sub.get("cards", []):
             new_card = Card(
                 card_id=str(uuid.uuid4())[:8],
@@ -180,7 +201,6 @@ def generate_syllabus(data: SyllabusGenerateRequest, db: Session = Depends(get_d
             )
             db.add(new_card)
         
-        # Add MCQs
         for mcq in sub.get("mcqs", []):
             new_mcq = MCQ(
                 mcq_id=str(uuid.uuid4())[:8],
@@ -192,9 +212,6 @@ def generate_syllabus(data: SyllabusGenerateRequest, db: Session = Depends(get_d
                 source="ai"
             )
             db.add(new_mcq)
-            
-    db.commit()
-    return {"created_topic_ids": created_ids}
 
 
 @router.delete("/topics/{topic_id}")

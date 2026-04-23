@@ -164,5 +164,16 @@ class SyllabusGenerateRequest(BaseModel):
     cards_per_topic: int = 8
     mcqs_per_topic: int = 5
 
+class SyllabusSuggestRequest(BaseModel):
+    subject: str
+    existing_topics: List[str]
+
+class SubtopicExtendRequest(BaseModel):
+    parent_id: int
+    subject: str
+    topics: List[str]
+    cards_per_topic: int = 8
+    mcqs_per_topic: int = 5
+
 class BulkDeleteRequest(BaseModel):
     topic_ids: List[str]

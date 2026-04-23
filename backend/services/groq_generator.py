@@ -66,4 +66,73 @@ Constraints:
             print(f"Error generating syllabus: {e}")
             raise e
 
+    def suggest_related_topics(self, subject: str, existing_topics: List[str]) -> List[Dict[str, str]]:
+        """
+        Suggests 5 related topics for a given subject, avoiding duplicates with existing_topics.
+        """
+        system_prompt = f"""You are an educational consultant. 
+Identify 5 advanced or related subtopics for the subject '{subject}'.
+Exclude these existing topics: {", ".join(existing_topics)}.
+The response MUST be a JSON object with this structure:
+{{
+  "suggestions": [
+    {{ "name": "Topic Name", "description": "Short 1-sentence teaser" }},
+    ...
+  ]
+}}
+Language: English (natural and professional).
+"""
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Suggest more for {subject}"}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.7
+            )
+            data = json.loads(response.choices[0].message.content)
+            return data.get("suggestions", [])
+        except Exception as e:
+            print(f"Error suggesting topics: {e}")
+            return []
+
+    def generate_subtopics(self, subject: str, topic_names: List[str], cards_per_topic=8, mcqs_per_topic=5) -> List[Dict[str, Any]]:
+        """
+        Generates full content for specific subtopic names within a subject context.
+        """
+        system_prompt = f"""You are an educational content creator.
+For the subject '{subject}', create detailed learning modules for these specific topics: {", ".join(topic_names)}.
+The response MUST be a JSON object with this structure:
+{{
+  "subtopics": [
+    {{
+      "name": "Topic Name",
+      "description": "Short detail",
+      "cards": [ {{"front": "...", "back": "..."}} ],
+      "mcqs": [ {{"question": "...", "options": ["...", "..."], "answer_index": 0, "explanation": "..."}} ]
+    }}
+  ]
+}}
+Constraints:
+- {cards_per_topic} flashcards and {mcqs_per_topic} MCQs per subtopic.
+- Content must be in Hinglish (natural mix of Hindi and English) for explanations where helpful.
+"""
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Create content for {topic_names}"}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.3
+            )
+            data = json.loads(response.choices[0].message.content)
+            return data.get("subtopics", [])
+        except Exception as e:
+            print(f"Error generating subtopics: {e}")
+            raise e
+
 groq_generator = GroqGenerator()
