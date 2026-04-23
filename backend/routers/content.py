@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from database import get_db
 from models import Topic, Card, MCQ, User
-from schemas import TopicOut, CardOut, MCQOut, SyllabusGenerateRequest, BulkDeleteRequest
+from schemas import TopicOut, CardOut, MCQOut, SyllabusGenerateRequest, BulkDeleteRequest, SyllabusSuggestRequest, SubtopicExtendRequest
 import uuid
 import json
 
