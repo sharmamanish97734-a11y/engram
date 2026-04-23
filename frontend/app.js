@@ -323,7 +323,15 @@ const Home = () => {
                  </ul>
                </section>
                <Button onClick={() => setShowModal(false)} variant="secondary" className="mt-4 !py-2.5 !text-sm">Close Analysis</Button>
-     // 5. Topics Page
+              </div>
+            )}
+          </Modal>
+        </div>
+     </Layout>
+  )
+}
+
+// 5. Topics Page
 const Topics = () => {
   const navigate = useNavigate();
   const { data, isLoading, refetch } = useQuery({ queryKey: ['topics'], queryFn: () => api.get('/topics').then(r => r.data) });
