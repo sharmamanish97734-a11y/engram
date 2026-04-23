@@ -57,7 +57,9 @@ def update_streak(db: Session, user: User) -> int:
     now = datetime.utcnow()
     bonus_delta = 0.0
     if user.last_activity_at:
-        diff_hours = (now - user.last_activity_at).total_seconds() / 3600
+        # Strip tzinfo in case the DB driver returns an offset-aware datetime
+        last_activity_naive = user.last_activity_at.replace(tzinfo=None)
+        diff_hours = (now - last_activity_naive).total_seconds() / 3600
         if diff_hours < 48:
             # Consecutive day
             from datetime import date
