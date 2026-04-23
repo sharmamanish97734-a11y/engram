@@ -323,19 +323,15 @@ const Home = () => {
                  </ul>
                </section>
                <Button onClick={() => setShowModal(false)} variant="secondary" className="mt-4 !py-2.5 !text-sm">Close Analysis</Button>
-             </div>
-           )}
-         </Modal>
-       </div>
-    </Layout>
-  )
-}
-
-// 5. Topics Page
+     // 5. Topics Page
 const Topics = () => {
   const navigate = useNavigate();
   const { data, isLoading, refetch } = useQuery({ queryKey: ['topics'], queryFn: () => api.get('/topics').then(r => r.data) });
   
+  // Drill-down State
+  const [activeSyllabusId, setActiveSyllabusId] = useState(null);
+  const activeSyllabus = useMemo(() => data?.find(t => t.id === activeSyllabusId), [data, activeSyllabusId]);
+
   // AISyllabus Generation State
   const [showModal, setShowModal] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -357,6 +353,7 @@ const Topics = () => {
         await api.post('/topics/delete-bulk', { topic_ids: selectedIds });
         setSelectedIds([]);
         setIsSelectionMode(false);
+        setActiveSyllabusId(null);
         refetch();
       } catch (err) {
         alert("Failed to delete topics.");
@@ -369,6 +366,7 @@ const Topics = () => {
     if (confirm(`Delete "${topic.name}" and all its content?`)) {
       try {
         await api.delete(`/topics/${topic.topic_id}`);
+        if (activeSyllabusId === topic.id) setActiveSyllabusId(null);
         refetch();
       } catch (err) {
         alert("Failed to delete topic.");
@@ -422,7 +420,14 @@ const Topics = () => {
   return (
     <Layout>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Your Syllabus</h2>
+        <div className="flex items-center gap-3">
+          {activeSyllabusId && (
+            <button onClick={() => setActiveSyllabusId(null)} className="p-2 bg-surface border border-gray-800 rounded-xl hover:text-primary transition-colors">
+              <Icon name="arrow-left" />
+            </button>
+          )}
+          <h2 className="text-2xl font-bold">{activeSyllabusId ? activeSyllabus?.name : "Your Syllabus"}</h2>
+        </div>
         <div className="flex items-center gap-3">
           {data?.length > 0 && (
             <button 
@@ -432,135 +437,158 @@ const Topics = () => {
               {isSelectionMode ? 'Cancel' : 'Manage'}
             </button>
           )}
-          <div className="text-xs text-gray-400 bg-surface px-3 py-1 rounded-full border border-gray-800">
-            {data?.length || 0} Topics
-          </div>
         </div>
       </div>
 
-      {/* AI Generate Button */}
-      <button 
-        onClick={() => { setSubject(""); setShowModal(true); }}
-        className="w-full mb-8 bg-gradient-to-r from-primary/20 to-primaryFocus/20 border border-primary/30 rounded-2xl p-4 flex items-center justify-center gap-3 group hover:border-primary transition-all shadow-lg"
-      >
-        <div className="bg-primary/20 text-primary p-2 rounded-xl group-hover:scale-110 transition-transform">
-          <Icon name="wand" className="w-5 h-5" />
-        </div>
-        <span className="font-bold text-primary">Generate New Syllabus with Groq AI</span>
-        <Icon name="sparkles" className="text-primary/50" />
-      </button>
+      {!activeSyllabusId && (
+        <button 
+          onClick={() => { setSubject(""); setShowModal(true); }}
+          className="w-full mb-8 bg-gradient-to-r from-primary/20 to-primaryFocus/20 border border-primary/30 rounded-2xl p-4 flex items-center justify-center gap-3 group hover:border-primary transition-all shadow-lg"
+        >
+          <div className="bg-primary/20 text-primary p-2 rounded-xl group-hover:scale-110 transition-transform">
+            <Icon name="wand" className="w-5 h-5" />
+          </div>
+          <span className="font-bold text-primary">Generate New Syllabus with Groq AI</span>
+          <Icon name="sparkles" className="text-primary/50" />
+        </button>
+      )}
       
       {isLoading ? (
         <div className="space-y-4">
           {[1,2,3].map(i => <Skeleton key={i} className="h-48 w-full rounded-2xl" />)}
         </div>
       ) : (
-        <div className="space-y-8">
-          {data?.filter(t => !t.parent_id).map((syllabus, i) => {
-             const subtopics = data.filter(t => t.parent_id === syllabus.id);
-             return (
-               <div key={syllabus.id} className="animate-in fade-in slide-in-from-bottom-2" style={{animationDelay: `${i*100}ms`}}>
-                  <div className="flex justify-between items-end pb-3 mb-4 border-b border-gray-800">
-                    <div className="flex items-center gap-3">
-                      {isSelectionMode && (
-                        <input 
-                          type="checkbox" 
-                          checked={selectedIds.includes(syllabus.topic_id)}
-                          onChange={() => toggleSelect(syllabus.topic_id)}
-                          className="w-5 h-5 rounded border-gray-800 bg-gray-900 text-primary focus:ring-primary"
-                        />
-                      )}
+        <div className="space-y-6">
+          {!activeSyllabusId ? (
+            // SYLLABUS LIST VIEW
+            <div className="grid grid-cols-1 gap-4">
+              {data?.filter(t => !t.parent_id).map((syllabus, i) => {
+                const subtopics = data.filter(t => t.parent_id === syllabus.id);
+                const isSelected = selectedIds.includes(syllabus.topic_id);
+                
+                return (
+                  <div key={syllabus.id} 
+                    onClick={() => isSelectionMode ? toggleSelect(syllabus.topic_id) : setActiveSyllabusId(syllabus.id)}
+                    className={`group bg-surface border rounded-3xl p-6 transition-all relative cursor-pointer overflow-hidden ${isSelected ? 'border-primary bg-primary/5' : 'border-gray-800 hover:border-primary/50 hover:bg-[#1A1A24]'}`}
+                  >
+                    {/* Folder-like visual background */}
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl transition-opacity group-hover:opacity-100 opacity-50"></div>
+                    
+                    <div className="flex justify-between items-start relative z-10">
                       <div>
-                        <span className="text-[10px] uppercase font-black tracking-widest text-primary mb-1 border border-primary/20 bg-primary/10 px-2 py-0.5 rounded-full inline-block">Syllabus</span>
-                        <h2 className="text-xl font-bold text-white mt-1">{syllabus.name}</h2>
+                        <div className="flex items-center gap-2 mb-2">
+                           <Icon name="book" className="text-primary w-5 h-5" />
+                           <span className="text-[10px] font-black uppercase tracking-widest text-primary px-2 py-0.5 bg-primary/10 rounded-full border border-primary/20">Course</span>
+                        </div>
+                        <h3 className="text-xl font-bold text-white mb-1">{syllabus.name}</h3>
+                        <p className="text-sm text-gray-500 line-clamp-1">{syllabus.description || 'AI Generated Syllabus'}</p>
                       </div>
+                      
+                      {isSelectionMode ? (
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-primary border-primary' : 'border-gray-700'}`}>
+                          {isSelected && <Icon name="check-circle" className="text-white w-4 h-4" />}
+                        </div>
+                      ) : (
+                        <div className="text-right">
+                           <div className="text-2xl font-black text-white/20 group-hover:text-primary/40 transition-colors">{subtopics.length}</div>
+                           <div className="text-[8px] font-bold text-gray-600 uppercase tracking-tighter">Topics</div>
+                        </div>
+                      )}
                     </div>
-                    {isSelectionMode && (
-                       <button onClick={(e) => handleDeleteSingle(e, syllabus)} className="text-rose-500/40 hover:text-rose-500 p-2 transition-colors">
-                         <Icon name="trash-2" className="w-5 h-5" />
-                       </button>
-                    )}
+
+                    <div className="mt-6 flex items-center justify-between relative z-10">
+                       <div className="flex -space-x-2">
+                          {[1,2,3].map(x => <div key={x} className="w-6 h-6 rounded-full border-2 border-surface bg-gray-800 flex items-center justify-center text-[10px] text-gray-500 uppercase font-black"><Icon name="brain" className="w-3 h-3" /></div>)}
+                       </div>
+                       <div className="text-xs font-bold text-gray-400 group-hover:text-primary transition-colors flex items-center gap-1">
+                          Open Library <Icon name="arrow-up-right" className="w-3 h-3" />
+                       </div>
+                    </div>
                   </div>
-                  
-                  {subtopics.length === 0 ? (
-                    <div className="text-sm text-gray-500 italic p-6 bg-surface rounded-2xl border border-gray-800 border-dashed text-center">No topics generated yet.</div>
-                  ) : (
-                    <div className="space-y-4">
-                      {subtopics.map((topic, j) => {
-                         const totalCards = topic.card_count + topic.mcq_count;
-                         const learnedPercent = totalCards > 0 ? (topic.learned_count / totalCards) * 100 : 0;
-                         const masteryColor = topic.mastery_percent > 80 ? 'text-emerald-400' : topic.mastery_percent > 40 ? 'text-blue-400' : 'text-gray-400';
-                         const isSelected = selectedIds.includes(topic.topic_id);
+                );
+              })}
+            </div>
+          ) : (
+            // SUBTOPICS VIEW (DRILL-DOW)
+            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+               <div className="mb-6 p-4 bg-primary/5 rounded-2xl border border-primary/20 flex flex-col gap-1">
+                  <span className="text-[10px] font-black text-primary uppercase tracking-widest leading-none">Exploring Syllabus</span>
+                  <div className="text-sm text-gray-400 leading-relaxed italic line-clamp-2">
+                    {activeSyllabus?.description || "Select a subtopic below to start learning or take a quiz."}
+                  </div>
+               </div>
 
-                         return (
-                           <div key={topic.id} 
-                             onClick={() => isSelectionMode && toggleSelect(topic.topic_id)}
-                             className={`bg-surface border rounded-2xl p-5 transition-all relative ${isSelected ? 'border-primary bg-primary/5 shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)]' : 'border-gray-800 hover:bg-[#13111C]/50'} ${isSelectionMode ? 'cursor-pointer' : ''}`}
-                           >
-                              {isSelectionMode && (
-                                <div className="absolute top-4 right-4 animate-in zoom-in duration-300">
-                                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-primary border-primary' : 'border-gray-700'}`}>
-                                    {isSelected && <Icon name="check-circle" className="text-white w-4 h-4" />}
-                                  </div>
-                                </div>
-                              )}
-                              <div className="flex justify-between items-start mb-4">
-                                <div className="flex flex-col">
-                                  <span className="text-[10px] uppercase font-black tracking-widest text-gray-500 mb-1">{topic.category || 'Topic'}</span>
-                                  <h3 className="font-bold text-lg text-white leading-tight">{topic.name}</h3>
-                                </div>
-                                {!isSelectionMode && (
-                                  <div className="flex flex-col items-end">
-                                    <div className={`text-xl font-black ${masteryColor}`}>{topic.mastery_percent}%</div>
-                                    <div className="text-[8px] uppercase font-bold text-gray-500 tracking-tighter">Mastery</div>
-                                  </div>
-                                )}
-                              </div>
-                              
-                              {/* Progress Bar */}
-                              <div className="mb-4">
-                                <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1.5">
-                                  <span>{topic.learned_count} / {totalCards} LEARNED</span>
-                                  <span>{topic.due_count} DUE</span>
-                                </div>
-                                <div className="h-2 bg-gray-900 rounded-full overflow-hidden flex border border-gray-800/50">
-                                  <div className="h-full bg-primary shadow-[0_0_8px_rgba(var(--primary-rgb),0.4)]" style={{width: `${learnedPercent}%`}}></div>
-                                </div>
-                              </div>
+               <div className="space-y-4">
+                  {data.filter(t => t.parent_id === activeSyllabusId).map((topic, j) => {
+                     const totalCards = topic.card_count + topic.mcq_count;
+                     const learnedPercent = totalCards > 0 ? (topic.learned_count / totalCards) * 100 : 0;
+                     const masteryColor = topic.mastery_percent > 80 ? 'text-emerald-400' : topic.mastery_percent > 40 ? 'text-blue-400' : 'text-gray-400';
+                     const isSelected = selectedIds.includes(topic.topic_id);
 
-                              {/* Dashboard Stats */}
-                              <div className="grid grid-cols-2 gap-3 mb-5">
-                                <div className="bg-[#0A0A0F]/50 rounded-xl p-2.5 border border-gray-800/50">
-                                   <div className="text-[9px] text-gray-500 font-bold uppercase mb-0.5">Last Studied</div>
-                                   <div className="text-xs text-gray-300 flex items-center gap-1.5 font-medium">
-                                     <Icon name="history" className="w-3 h-3 opacity-50" /> {formatLastStudied(topic.last_studied)}
-                                   </div>
-                                </div>
-                                <div className="bg-[#0A0A0F]/50 rounded-xl p-2.5 border border-gray-800/50">
-                                   <div className="text-[9px] text-gray-500 font-bold uppercase mb-0.5">Next Session</div>
-                                   <div className="text-xs text-gray-300 flex items-center gap-1.5 font-medium">
-                                     <Icon name="clock" className="w-3 h-3 opacity-50" /> {topic.next_session_minutes} min
-                                   </div>
-                                </div>
+                     return (
+                       <div key={topic.id} 
+                         onClick={() => isSelectionMode && toggleSelect(topic.topic_id)}
+                         className={`bg-surface border rounded-2xl p-5 transition-all relative ${isSelected ? 'border-primary bg-primary/5' : 'border-gray-800 hover:bg-[#13111C]/50'} ${isSelectionMode ? 'cursor-pointer' : ''}`}
+                       >
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex flex-col">
+                              <span className="text-[10px] uppercase font-black tracking-widest text-gray-500 mb-1">{topic.category || 'Topic'}</span>
+                              <h3 className="font-bold text-lg text-white leading-tight">{topic.name}</h3>
+                            </div>
+                            {!isSelectionMode && (
+                              <div className="flex flex-col items-end">
+                                <div className={`text-xl font-black ${masteryColor}`}>{topic.mastery_percent}%</div>
+                                <div className="text-[8px] uppercase font-bold text-gray-500 tracking-tighter">Mastery</div>
                               </div>
+                            )}
+                          </div>
+                          
+                          <div className="mb-4">
+                            <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1.5">
+                              <span>{topic.learned_count} / {totalCards} LEARNED</span>
+                              <span>{topic.due_count} DUE</span>
+                            </div>
+                            <div className="h-2 bg-gray-900 rounded-full overflow-hidden flex border border-gray-800/50">
+                              <div className="h-full bg-primary" style={{width: `${learnedPercent}%`}}></div>
+                            </div>
+                          </div>
 
-                              <div className="flex gap-2">
-                                 <button onClick={() => navigate(`/learn/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-white bg-primary hover:bg-primaryFocus py-2.5 rounded-xl transition-all shadow-lg shadow-primary/10">Study Due</button>
-                                 <button onClick={() => navigate(`/quiz/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-black bg-white hover:bg-gray-200 py-2.5 rounded-xl transition-all">Quiz</button>
-                                 <div className="flex gap-1 bg-gray-900/50 p-1 rounded-xl border border-gray-800">
-                                    <button title="Regenerate" onClick={(e) => { e.stopPropagation(); setSubject(topic.name); setShowModal(true); }} className="p-2 text-primary/60 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"><Icon name="wand" className="w-4 h-4" /></button>
-                                    <button title="Review All" onClick={() => navigate(`/learn/${topic.topic_id}?all=true`)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"><Icon name="refresh-cw" className="w-4 h-4" /></button>
-                                    <button title="Reset Progress" onClick={(e) => handleReset(e, topic)} className="p-2 text-gray-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"><Icon name="trash-2" className="w-4 h-4" /></button>
-                                 </div>
-                              </div>
-                           </div>
-                         )
-                      })}
-                    </div>
+                          <div className="grid grid-cols-2 gap-3 mb-5">
+                            <div className="bg-[#0A0A0F]/50 rounded-xl p-2.5 border border-gray-800/50">
+                               <div className="text-[9px] text-gray-500 font-bold uppercase mb-0.5">Last Studied</div>
+                               <div className="text-xs text-gray-300 flex items-center gap-1.5 font-medium">
+                                 <Icon name="history" className="w-3 h-3 opacity-50" /> {formatLastStudied(topic.last_studied)}
+                               </div>
+                            </div>
+                            <div className="bg-[#0A0A0F]/50 rounded-xl p-2.5 border border-gray-800/50">
+                               <div className="text-[9px] text-gray-500 font-bold uppercase mb-0.5">Next Session</div>
+                               <div className="text-xs text-gray-300 flex items-center gap-1.5 font-medium">
+                                 <Icon name="clock" className="w-3 h-3 opacity-50" /> {topic.next_session_minutes} min
+                               </div>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                             <button onClick={() => navigate(`/learn/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-white bg-primary hover:bg-primaryFocus py-2.5 rounded-xl transition-all shadow-lg shadow-primary/10">Study Due</button>
+                             <button onClick={() => navigate(`/quiz/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-black bg-white hover:bg-gray-200 py-2.5 rounded-xl transition-all">Quiz</button>
+                             <div className="flex gap-1 bg-gray-900/50 p-1 rounded-xl border border-gray-800">
+                                <button title="Regenerate" onClick={(e) => { e.stopPropagation(); setSubject(topic.name); setShowModal(true); }} className="p-2 text-primary/60 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"><Icon name="wand" className="w-4 h-4" /></button>
+                                <button title="Review All" onClick={() => navigate(`/learn/${topic.topic_id}?all=true`)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"><Icon name="refresh-cw" className="w-4 h-4" /></button>
+                                <button title="Reset Progress" onClick={(e) => handleReset(e, topic)} className="p-2 text-gray-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"><Icon name="trash-2" className="w-4 h-4" /></button>
+                             </div>
+                          </div>
+                       </div>
+                     )
+                  })}
+                  {data.filter(t => t.parent_id === activeSyllabusId).length === 0 && (
+                     <div className="text-center p-12 text-gray-500 border border-dashed border-gray-800 rounded-3xl">
+                        <Icon name="book" className="w-10 h-10 mb-4 opacity-20 mx-auto" />
+                        <p>No content in this syllabus yet.</p>
+                     </div>
                   )}
                </div>
-             )
-          })}
+            </div>
+          )}
         </div>
       )}
 
