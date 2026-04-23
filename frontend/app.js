@@ -319,6 +319,9 @@ const Home = () => {
                      <li key={i} className="flex gap-3 text-gray-400 text-[13px]">
                         <span className="text-primary font-bold">0{i+1}.</span> {s}
                      </li>
+                   ))}
+                 </ul>
+               </section>
                <Button onClick={() => setShowModal(false)} variant="secondary" className="mt-4 !py-2.5 !text-sm">Close Analysis</Button>
               </div>
             )}
