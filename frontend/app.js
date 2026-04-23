@@ -40,7 +40,7 @@ const iconMap = {
   'flame': '🔥', 'zap': '⚡', 'book': '📚', 'check-circle': '✅', 'clock': '⏱️',
   'clock-3': '🕐', 'arrow-down-left': '↙️', 'arrow-up-right': '↗️', 'x-circle': '❌',
   'arrow-left': '⬅️', 'x': '❌', 'rotate-cw': '🔄', 'brain': '🧠', 'wand': '🪄', 'sparkles': '✨', 'lightbulb': '💡',
-  'history': '🕒', 'refresh-cw': '🔄', 'trash-2': '🗑️', 'target': '🎯'
+  'history': '🕒', 'refresh-cw': '🔄', 'trash-2': '🗑️', 'target': '🎯', 'plus': '➕', 'loader': '⌛'
 };
 
 const Icon = ({ name, className = "inline-block w-5 h-5", style }) => {
@@ -355,7 +355,7 @@ const Topics = () => {
   // Load suggestions when syllabus opens
   useEffect(() => {
     if (activeSyllabus) {
-      const existing = data.filter(t => t.parent_id === activeSyllabus.id).map(t => t.name);
+      const existing = data?.filter(t => t.parent_id === activeSyllabus.id).map(t => t.name) || [];
       loadSuggestions(activeSyllabus.name, existing);
     }
   }, [activeSyllabusId]);
@@ -490,7 +490,7 @@ const Topics = () => {
             // SYLLABUS LIST VIEW
             <div className="grid grid-cols-1 gap-4">
               {data?.filter(t => !t.parent_id).map((syllabus) => {
-                const subtopics = data.filter(t => t.parent_id === syllabus.id);
+                const subtopics = data?.filter(t => t.parent_id === syllabus.id) || [];
                 const isSelected = selectedIds.includes(syllabus.topic_id);
                 return (
                   <div key={syllabus.id} 
@@ -527,7 +527,7 @@ const Topics = () => {
                </div>
 
                <div className="space-y-4">
-                  {data.filter(t => t.parent_id === activeSyllabusId).map((topic) => {
+                  {data?.filter(t => t.parent_id === activeSyllabusId).map((topic) => {
                      const totalCards = topic.card_count + topic.mcq_count;
                      const learnedPercent = totalCards > 0 ? (topic.learned_count / totalCards) * 100 : 0;
                      const masteryColor = topic.mastery_percent > 80 ? 'text-emerald-400' : topic.mastery_percent > 40 ? 'text-blue-400' : 'text-gray-400';
@@ -562,7 +562,7 @@ const Topics = () => {
                         </div>
                      ) : (
                         <div className="space-y-3">
-                           {suggestions.map((s, i) => (
+                           {suggestions?.map((s, i) => (
                               <div key={i} className="bg-surface border border-gray-800 p-4 rounded-2xl flex justify-between items-center transition-all hover:border-primary/40">
                                  <div>
                                     <div className="font-bold text-gray-200 text-sm">{s.name}</div>
