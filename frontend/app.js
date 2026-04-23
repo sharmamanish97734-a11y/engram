@@ -904,28 +904,39 @@ const Learn = ({ id }) => {
                     <div className="absolute w-full h-full bg-surface border border-gray-800 rounded-3xl opacity-20 scale-[0.85] -z-20 translate-y-12"></div>
                 )}
 
-                {/* The Active Card */}
+                {/* The Active Card Container with 3D Perspective */}
                 <div 
-                    className="absolute w-full h-full group shadow-2xl rounded-3xl cursor-grab active:cursor-grabbing" 
+                    className="absolute w-full h-full" 
                     style={{ 
+                        perspective: '1200px',
                         transform: `translate(${translateX}px, ${translateY}px) rotate(${rotate}deg)`,
-                        transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                        transition: isDragging ? 'none' : 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                         zIndex: 20
                     }}
                     onPointerDown={handlePointerDown}
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}
                     onPointerLeave={handlePointerUp}
-                    // For mobile
                     onPointerCancel={handlePointerUp}
                 >
-                    {/* Visual Stamp Overlays */}
-                    {swipeStatus === 'hard' && <div className="absolute top-8 right-8 z-30 border-4 border-rose-500 text-rose-500 font-black text-3xl px-4 py-1 rounded-xl uppercase rotate-12 bg-[#1A1A24]/90 backdrop-blur shadow-2xl">Hard</div>}
-                    {swipeStatus === 'good' && <div className="absolute top-8 left-8 z-30 border-4 border-emerald-500 text-emerald-500 font-black text-3xl px-4 py-1 rounded-xl uppercase -rotate-12 bg-[#1A1A24]/90 backdrop-blur shadow-2xl">Good</div>}
-                    {swipeStatus === 'deep-dive' && <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-30 border-4 border-primary text-primary font-black text-2xl px-6 py-2 rounded-xl uppercase bg-[#1A1A24]/90 backdrop-blur shrink-0 min-w-max shadow-2xl animate-pulse">✨ Deep Dive</div>}
+                    {/* Inner wrapper for Flipping */}
+                    <div className="relative w-full h-full transition-transform duration-700" 
+                         style={{ 
+                            transformStyle: 'preserve-3d',
+                            transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                            transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
+                         }}>
+                        
+                        {/* Visual Stamp Overlays (Always on top) */}
+                        <div className="absolute inset-0 z-50 pointer-events-none" style={{ transform: 'translateZ(50px)' }}>
+                           {swipeStatus === 'hard' && <div className="absolute top-8 right-8 border-4 border-rose-500 text-rose-500 font-black text-3xl px-4 py-1 rounded-xl uppercase rotate-12 bg-[#1A1A24]/90 backdrop-blur shadow-2xl">Hard</div>}
+                           {swipeStatus === 'good' && <div className="absolute top-8 left-8 border-4 border-emerald-500 text-emerald-500 font-black text-3xl px-4 py-1 rounded-xl uppercase -rotate-12 bg-[#1A1A24]/90 backdrop-blur shadow-2xl">Good</div>}
+                           {swipeStatus === 'deep-dive' && <div className="absolute bottom-16 left-1/2 -translate-x-1/2 border-4 border-primary text-primary font-black text-2xl px-6 py-2 rounded-xl uppercase bg-[#1A1A24]/90 backdrop-blur min-w-max shadow-2xl">✨ Deep Dive</div>}
+                        </div>
 
-                    {!flipped ? (
-                        <div className="w-full h-full bg-gradient-to-br from-surface to-[#1A1A24] border border-primary/30 rounded-3xl p-6 flex flex-col justify-center text-center shadow-[0_0_40px_rgba(99,102,241,0.05)]">
+                        {/* FRONT FACE */}
+                        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-surface to-[#1A1A24] border border-primary/30 rounded-3xl p-6 flex flex-col justify-center text-center shadow-2xl"
+                             style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}>
                              <div className="absolute top-6 left-6 right-6 flex justify-between items-center text-xs font-bold tracking-widest text-primary">
                                 <span className="uppercase">{card.type}</span>
                                 <Icon name="lightbulb" className="text-gray-600 w-4 h-4" />
@@ -937,7 +948,7 @@ const Learn = ({ id }) => {
                              <div className="min-h-[40px] flex items-center justify-center z-40 relative">
                                 {!hint && !isHinting ? (
                                     <button 
-                                        onPointerDown={(e) => e.stopPropagation()} // Stop drag when clicking hint
+                                        onPointerDown={(e) => e.stopPropagation()} 
                                         onClick={getHint} 
                                         className="text-[10px] font-bold text-primary/60 hover:text-primary transition-all flex items-center gap-1.5 bg-primary/5 px-3 py-1.5 rounded-full border border-primary/10 hover:border-primary/30"
                                     >
@@ -951,30 +962,31 @@ const Learn = ({ id }) => {
                                     </div>
                                 )}
                              </div>
+                             
+                             <div className="mt-auto text-gray-600 text-[10px] uppercase font-bold tracking-widest">Tap to reveal answer</div>
+                        </div>
 
-                             {/* Helper Text */}
-                             <div className="absolute bottom-6 w-full left-0 text-[10px] sm:text-xs text-gray-500 flex flex-col items-center justify-center gap-2 pointer-events-none">
-                                <div className="flex gap-4">
-                                    <span className="flex items-center gap-1"><Icon name="arrow-left" className="w-3 h-3"/> Swipe Hard</span>
-                                    <span className="flex items-center gap-1">Swipe Good <Icon name="arrow-left" className="w-3 h-3 rotate-180"/></span>
+                        {/* BACK FACE */}
+                        <div className="absolute inset-0 w-full h-full bg-[#1A1A24] border border-success/30 rounded-3xl p-8 flex flex-col items-center justify-center text-center shadow-2xl"
+                             style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+                             <div className="absolute top-6 left-6 text-xs font-black tracking-widest text-success border border-success/20 bg-success/5 px-2 py-0.5 rounded-full uppercase">Explanation</div>
+                             
+                             <div className="flex-1 flex items-center justify-center overflow-y-auto custom-scrollbar w-full py-6">
+                                <p className="text-lg sm:text-xl text-gray-200 leading-relaxed font-medium">
+                                    {card.content}
+                                </p>
+                             </div>
+
+                             <div className="mt-4 w-full pt-6 border-t border-gray-800 flex flex-col gap-3">
+                                <div className="text-[10px] uppercase font-black text-gray-500 tracking-widest">Swipe to rate</div>
+                                <div className="flex justify-between w-full px-4 font-bold text-[10px]">
+                                   <div className="flex items-center gap-1 text-rose-500"><Icon name="arrow-left" className="w-3 h-3" /> HARD</div>
+                                   <div className="flex items-center gap-1 text-primary hover:text-primaryFocus transition-colors cursor-pointer" onClick={() => triggerDeepDive()}><Icon name="arrow-up-right" className="w-3 h-3" /> DEEP DIVE</div>
+                                   <div className="flex items-center gap-1 text-emerald-500">GOOD <Icon name="arrow-left" className="w-3 h-3 transform rotate-180" /></div>
                                 </div>
-                                <span className="flex items-center gap-1 font-semibold text-primary/60 animate-pulse mt-1">
-                                    <Icon name="arrow-left" className="w-3 h-3 rotate-90"/> Swipe Up for Deep Dive
-                                </span>
                              </div>
                         </div>
-                    ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-indigo-900/40 to-surface border border-primary/50 text-white rounded-3xl p-6 flex flex-col overflow-y-auto text-center justify-center relative shadow-[0_0_50px_rgba(99,102,241,0.15)]">
-                            <p className="text-xl leading-relaxed py-8">
-                                {card.content}
-                            </p>
-                             <div className="absolute bottom-6 w-full left-0 text-[10px] sm:text-xs text-gray-500 flex flex-col items-center justify-center gap-2 pointer-events-none">
-                                <span className="flex items-center gap-1 font-semibold text-primary/60 animate-pulse">
-                                    <Icon name="arrow-left" className="w-3 h-3 rotate-90"/> Swipe Up for Deep Dive
-                                </span>
-                             </div>
-                        </div>
-                    )}
+                    </div>
                 </div>
             </div>
 
