@@ -958,6 +958,52 @@ const Quiz = ({ id }) => {
    const [isExplaining, setIsExplaining] = useState(false);
    const [showSolution, setShowSolution] = useState(false);
 
+   // Swipe state
+   const [translateX, setTranslateX] = useState(0);
+   const [isDragging, setIsDragging] = useState(false);
+   const [swipeStatus, setSwipeStatus] = useState(null);
+   const dragState = useRef({ isDragging: false, startX: 0, startY: 0 });
+
+   const resetDrag = () => {
+       setTranslateX(0);
+       setIsDragging(false);
+       setSwipeStatus(null);
+       dragState.current.isDragging = false;
+   };
+
+   const handleQuizPointerDown = (e) => {
+       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+       dragState.current = { isDragging: true, startX: clientX, startY: clientY };
+       setIsDragging(true);
+   };
+
+   const handleQuizPointerMove = (e) => {
+       if (!dragState.current.isDragging) return;
+       if (e.cancelable) e.preventDefault();
+       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+       const deltaX = clientX - dragState.current.startX;
+       // Only allow leftward drag (negative deltaX)
+       if (deltaX < 0) {
+           setTranslateX(deltaX);
+           if (deltaX < -80) setSwipeStatus('next');
+           else setSwipeStatus(null);
+       }
+   };
+
+   const handleQuizPointerUp = () => {
+       if (!dragState.current.isDragging) return;
+       dragState.current.isDragging = false;
+       setIsDragging(false);
+       if (translateX < -100 && result !== null) {
+           // Toss card off screen then advance
+           setTranslateX(-window.innerWidth * 1.5);
+           setTimeout(() => { resetDrag(); nextQuestion(); }, 280);
+       } else {
+           resetDrag();
+       }
+   };
+
    const submitAnswer = async (index) => {
        if (selectedOption !== null) return;
        setSelectedOption(index);
@@ -1008,8 +1054,30 @@ const Quiz = ({ id }) => {
    let options = [];
    try { options = JSON.parse(mcq.options); } catch(e) {}
 
+   const rotate = (translateX / window.innerWidth) * 12;
+
    return (
        <Layout>
+           {/* Swipe hint overlay */}
+           {swipeStatus === 'next' && (
+               <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none">
+                   <div className="border-4 border-emerald-400 text-emerald-400 font-black text-3xl px-6 py-2 rounded-xl uppercase -rotate-12 bg-[#0A0A0F]/90 backdrop-blur shadow-2xl">NEXT →</div>
+               </div>
+           )}
+
+           {/* Draggable card wrapper */}
+           <div
+               style={{
+                   transform: `translateX(${translateX}px) rotate(${rotate}deg)`,
+                   transition: isDragging ? 'none' : 'transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+               }}
+               onPointerDown={handleQuizPointerDown}
+               onPointerMove={handleQuizPointerMove}
+               onPointerUp={handleQuizPointerUp}
+               onPointerLeave={handleQuizPointerUp}
+               onPointerCancel={handleQuizPointerUp}
+               className="touch-none"
+           >
             <div className="flex items-center justify-between mt-4 mb-6">
                 <button onClick={() => navigate('/home')} className="text-gray-400 hover:text-white bg-surface p-2 rounded-lg border border-gray-800"><Icon name="x" /></button>
                 <div className={`px-4 py-1 rounded-full text-sm font-bold border ${mcq.difficulty === 'hard' ? 'border-orange-500 text-orange-500 bg-orange-500/10' : mcq.difficulty === 'easy' ? 'border-emerald-500 text-emerald-500 bg-emerald-500/10' : 'border-blue-500 text-blue-500 bg-blue-500/10'}`}>
@@ -1090,6 +1158,14 @@ const Quiz = ({ id }) => {
                     <Button onClick={nextQuestion} variant={result.correct ? 'success' : 'danger'}>Next Question</Button>
                 </div>
             )}
+
+            {/* Swipe hint at bottom when answered */}
+            {result && (
+               <div className="mt-4 flex items-center justify-center gap-2 text-gray-600 text-[10px] uppercase font-bold tracking-widest animate-in fade-in duration-500">
+                   <Icon name="arrow-left" className="w-3 h-3" /> swipe left for next
+               </div>
+            )}
+           </div>{/* end draggable wrapper */}
        </Layout>
    );
 };
