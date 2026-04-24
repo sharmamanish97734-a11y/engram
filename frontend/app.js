@@ -63,6 +63,28 @@ const Icon = ({ name, className = "inline-block w-5 h-5", style }) => {
   return <span className={className} style={style}>{iconMap[name] || '•'}</span>;
 }
 
+const formatTimeAgo = (dateStr) => {
+    if (!dateStr) return "Never";
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    if (diffInSeconds < 60) return "Just now";
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    return `${Math.floor(diffInSeconds / 86400)}d ago`;
+};
+
+const formatTimeAgo = (dateStr) => {
+    if (!dateStr) return "Never";
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    if (diffInSeconds < 60) return "Just now";
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    return `${Math.floor(diffInSeconds / 86400)}d ago`;
+};
+
 const isLocal = window.location.hostname === 'localhost' || 
                  window.location.hostname === '127.0.0.1' || 
                  window.location.hostname === '0.0.0.0' ||
@@ -234,6 +256,24 @@ const Layout = ({ children }) => {
 const Home = () => {
   const user = useAuthStore(s => s.user);
   const navigate = useNavigate();
+  const { data: topics } = useQuery({ 
+    queryKey: ['topics'], 
+    queryFn: () => api.get('/topics').then(r => r.data),
+    refetchInterval: 30000 
+  });
+  
+  // Aggregate stats
+  const totalMastery = useMemo(() => {
+    if (!topics?.length) return 0;
+    const sum = topics.reduce((acc, t) => acc + (t.mastery_percent || 0), 0);
+    return Math.round(sum / topics.length);
+  }, [topics]);
+
+  const totalDue = useMemo(() => topics?.reduce((acc, t) => acc + (t.due_count || 0), 0) || 0, [topics]);
+  const totalLearned = useMemo(() => topics?.reduce((acc, t) => acc + (t.learned_count || 0), 0) || 0, [topics]);
+  const totalItems = useMemo(() => topics?.reduce((acc, t) => acc + (t.card_count + t.mcq_count || 0), 0) || 0, [topics]);
+  const learnedPercent = totalItems > 0 ? Math.round((totalLearned / totalItems) * 100) : 0;
+
   const [analysis, setAnalysis] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -255,49 +295,108 @@ const Home = () => {
 
   return (
     <Layout>
-       <div className="mt-4">
-         <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Hello, {user?.username}</h1>
-         <p className="text-gray-400 mb-8">What do you want to learn today?</p>
+      <div className="flex items-center justify-between mt-6 mb-8">
+        <div>
+          <h1 className="text-3xl font-black text-white tracking-tight">Hi, {user?.username || 'Learner'}!</h1>
+          <p className="text-gray-500 text-sm font-medium mt-1">Ready to level up your brain today?</p>
+        </div>
+        <div className="flex flex-col items-end">
+          <div className="flex items-center gap-1.5 bg-orange-500/10 text-orange-500 px-3 py-1.5 rounded-2xl border border-orange-500/20">
+            <Icon name="flame" className="w-4 h-4" />
+            <span className="font-black text-sm">{user?.current_streak || 0}</span>
+          </div>
+        </div>
+      </div>
 
-         {/* Streak Widget */}
-         <div className="bg-gradient-to-r from-orange-500/10 to-rose-500/10 border border-orange-500/20 rounded-2xl p-5 flex items-center justify-between mb-6">
-            <div>
-              <div className="text-orange-400 font-bold mb-1 flex items-center gap-1"><Icon name="flame" /> {user?.current_streak || 0} Day Streak</div>
-              <div className="text-sm text-gray-400">Keep it up! 7 days = ₹5 bonus</div>
-            </div>
-            <div className="h-12 w-12 rounded-full border-2 border-orange-500 flex items-center justify-center text-orange-400">
-               <Icon name="zap" />
-            </div>
-         </div>
+      {/* Progress Dashboard */}
+      <div className="grid grid-cols-2 gap-4 mb-8">
+          <div className="col-span-2 bg-gradient-to-br from-primary/20 to-surface border border-primary/20 rounded-[2.5rem] p-6 flex items-center justify-between overflow-hidden relative group">
+              <div className="relative z-10">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Overall Mastery</div>
+                  <div className="text-4xl font-black text-white">{totalMastery}%</div>
+                  <div className="mt-4 flex items-center gap-2">
+                      <div className="h-1.5 w-32 bg-gray-900 rounded-full overflow-hidden">
+                          <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${totalMastery}%` }}></div>
+                      </div>
+                  </div>
+              </div>
+              <div className="relative w-24 h-24 flex items-center justify-center">
+                  <svg className="w-full h-full transform -rotate-90">
+                      <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-gray-900" />
+                      <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" 
+                          strokeDasharray={251.2} 
+                          strokeDashoffset={251.2 * (1 - totalMastery / 100)} 
+                          className="text-primary transition-all duration-1000" />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                      <Icon name="brain" className="text-primary w-8 h-8 opacity-40 group-hover:opacity-100 transition-opacity" />
+                  </div>
+              </div>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+          </div>
 
-         <div className="grid grid-cols-2 gap-4">
-            <div onClick={() => navigate('/topics')} className="bg-gradient-to-br from-surface to-[#1A1A24] border border-gray-800 rounded-2xl p-5 hover:border-primary transition-all cursor-pointer group shadow-lg">
-               <div className="bg-primary/20 text-primary w-10 h-10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Icon name="book" /></div>
-               <h3 className="font-bold mb-1 text-white">Learn</h3>
-               <p className="text-xs text-gray-400">Study flashcards</p>
-            </div>
-            
-            <div onClick={() => navigate('/quiz/random')} className="bg-gradient-to-br from-surface to-[#1A1A24] border border-gray-800 rounded-2xl p-5 hover:border-success transition-all cursor-pointer group shadow-lg">
-               <div className="bg-success/20 text-success w-10 h-10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Icon name="check-circle" /></div>
-               <h3 className="font-bold mb-1 text-white">Quiz</h3>
-               <p className="text-xs text-gray-400">Earn ₹ Wallet</p>
-            </div>
-         </div>
+          <div className="bg-surface border border-gray-800 rounded-3xl p-5">
+              <div className="text-orange-500 mb-2 bg-orange-500/10 w-8 h-8 rounded-xl flex items-center justify-center">
+                  <Icon name="clock-3" className="w-4 h-4" />
+              </div>
+              <div className="text-2xl font-black text-white">{totalDue}</div>
+              <div className="text-[8px] font-bold text-gray-500 uppercase tracking-widest mt-1">Due for Review</div>
+          </div>
 
-         {/* AI Analysis Trigger */}
-         <div onClick={runAnalysis} className="mt-8 bg-surface border border-primary/20 rounded-2xl p-5 hover:border-primary transition-all cursor-pointer flex items-center gap-4 group">
-            <div className="bg-primary/20 text-primary w-12 h-12 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-primary/10">
-               <Icon name="brain" className="w-6 h-6" />
+          <div className="bg-surface border border-gray-800 rounded-3xl p-5">
+              <div className="text-emerald-400 mb-2 bg-emerald-400/10 w-8 h-8 rounded-xl flex items-center justify-center">
+                  <Icon name="check-circle" className="w-4 h-4" />
+              </div>
+              <div className="text-2xl font-black text-white">{learnedPercent}%</div>
+              <div className="text-[8px] font-bold text-gray-500 uppercase tracking-widest mt-1">Items Learned</div>
+          </div>
+      </div>
+
+      <div className="space-y-4">
+        <h2 className="text-lg font-bold text-white px-1">Quick Start</h2>
+        <div className="grid grid-cols-1 gap-4">
+          <button 
+            onClick={() => navigate('/topics')}
+            className="flex items-center gap-4 bg-[#1A1A24] p-5 rounded-3xl border border-gray-800 hover:border-primary/50 transition-all group"
+          >
+            <div className="bg-primary/10 p-4 rounded-2xl group-hover:bg-primary/20 transition-all">
+              <Icon name="book-open" className="text-primary w-6 h-6" />
             </div>
-            <div className="flex-1">
-               <div className="flex items-center gap-2">
-                 <h3 className="font-bold text-white leading-none">AI Insight Analysis</h3>
-                 <span className="text-[8px] bg-primary text-white px-1.5 py-0.5 rounded-full font-black uppercase">Beta</span>
-               </div>
-               <p className="text-xs text-gray-400 mt-1">Personalized strategy based on your history</p>
+            <div className="text-left">
+              <div className="font-bold text-white">Continue Path</div>
+              <div className="text-xs text-gray-500">Pick up where you left off</div>
             </div>
-            <Icon name="sparkles" className="text-primary opacity-40 group-hover:opacity-100 transition-opacity" />
+          </button>
+
+          <button 
+            onClick={() => navigate('/quiz/random')}
+            className="flex items-center gap-4 bg-[#1A1A24] p-5 rounded-3xl border border-gray-800 hover:border-white/20 transition-all group"
+          >
+            <div className="bg-white/5 p-4 rounded-2xl group-hover:bg-white/10 transition-all">
+              <Icon name="zap" className="text-white w-6 h-6" />
+            </div>
+            <div className="text-left">
+              <div className="font-bold text-white">Quick Practice</div>
+              <div className="text-xs text-gray-500">Mixed random quiz session</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* AI Analysis Trigger */}
+      <div onClick={runAnalysis} className="mt-8 bg-surface border border-primary/20 rounded-2xl p-5 hover:border-primary transition-all cursor-pointer flex items-center gap-4 group mb-24">
+         <div className="bg-primary/20 text-primary w-12 h-12 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-primary/10">
+            <Icon name="brain" className="w-6 h-6" />
          </div>
+         <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-white leading-none">AI Insight Analysis</h3>
+              <span className="text-[8px] bg-primary text-white px-1.5 py-0.5 rounded-full font-black uppercase">Beta</span>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Personalized strategy based on your history</p>
+         </div>
+         <Icon name="sparkles" className="text-primary opacity-40 group-hover:opacity-100 transition-opacity" />
+      </div>
 
          <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Study Analysis">
            {isAnalyzing ? (
@@ -554,6 +653,37 @@ const Topics = () => {
           ) : (
             // SUBTOPICS VIEW
             <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+               {/* Due Today Banner */}
+               {(() => {
+                  const subtopics = data?.filter(t => t.parent_id === activeSyllabusId) || [];
+                  const totalDue = subtopics.reduce((acc, t) => acc + (t.due_count || 0), 0);
+                  if (totalDue === 0) return null;
+                  
+                  // Find the subtopic with most due cards
+                  const focusTopic = [...subtopics].sort((a, b) => (b.due_count || 0) - (a.due_count || 0))[0];
+
+                  return (
+                    <div className="mb-6 p-5 bg-orange-500 border border-orange-400/30 rounded-3xl shadow-lg shadow-orange-500/20 flex items-center justify-between text-white overflow-hidden relative group">
+                        <div className="relative z-10 flex items-center gap-4">
+                            <div className="bg-white/20 p-2 rounded-xl">
+                                <Icon name="flame" className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                                <div className="text-[10px] font-black uppercase tracking-widest text-white/80">Action Required</div>
+                                <div className="font-bold text-sm">You have {totalDue} items due</div>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => navigate(`/learn/${focusTopic.topic_id}`)}
+                            className="relative z-10 bg-white text-orange-500 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-wider hover:bg-orange-50 transition-all shadow-sm"
+                        >
+                            Start Review
+                        </button>
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-12 -mt-12 blur-2xl"></div>
+                    </div>
+                  );
+               })()}
+
                <div className="mb-6 p-4 bg-primary/5 rounded-2xl border border-primary/20 flex flex-col gap-1">
                   <span className="text-[10px] font-black text-primary uppercase tracking-widest leading-none">Exploring Syllabus</span>
                   <div className="text-sm text-gray-400 leading-relaxed italic line-clamp-2">
@@ -562,28 +692,56 @@ const Topics = () => {
                </div>
 
                <div className="space-y-4">
-                  {Array.isArray(data) && data?.filter(t => t.parent_id === activeSyllabusId).map((topic) => {
+                  {Array.isArray(data) && data?.filter(t => t.parent_id === activeSyllabusId).map((topic, idx) => {
                      const totalCards = topic.card_count + topic.mcq_count;
                      const learnedPercent = totalCards > 0 ? (topic.learned_count / totalCards) * 100 : 0;
                      const masteryColor = topic.mastery_percent > 80 ? 'text-emerald-400' : topic.mastery_percent > 40 ? 'text-blue-400' : 'text-gray-400';
+                     
+                     // Badge logic
+                     let badge = { text: "Not Started", color: "bg-gray-800 text-gray-400 border-gray-700" };
+                     if (topic.mastery_percent > 80) badge = { text: "Mastered", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" };
+                     else if (topic.learned_count > 0) badge = { text: "In Progress", color: "bg-blue-500/10 text-blue-400 border-blue-500/20" };
+
                      return (
-                       <div key={topic.id} className="bg-surface border border-gray-800 rounded-2xl p-5 relative">
-                          <div className="flex justify-between items-start mb-4">
-                            <h3 className="font-bold text-lg text-white leading-tight">{topic.name}</h3>
-                            <div className="flex flex-col items-end">
-                                <div className={`text-xl font-black ${masteryColor}`}>{topic.mastery_percent}%</div>
-                                <div className="text-[8px] uppercase font-bold text-gray-500 tracking-tighter">Mastery</div>
+                       <LazyCard key={topic.id} delay={idx * 60}>
+                         <div className="bg-surface border border-gray-800 rounded-2xl p-5 relative overflow-hidden group">
+                            <div className="flex justify-between items-start mb-4">
+                              <div>
+                                <div className={`inline-flex px-2 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest mb-2 ${badge.color}`}>
+                                    {badge.text}
+                                </div>
+                                <h3 className="font-bold text-lg text-white leading-tight group-hover:text-primary transition-colors">{topic.name}</h3>
+                                {topic.last_studied && (
+                                    <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-1">
+                                        <Icon name="clock" className="w-2.5 h-2.5" />
+                                        Studied {formatTimeAgo(topic.last_studied)}
+                                    </div>
+                                )}
+                              </div>
+                              <div className="flex flex-col items-end">
+                                  <div className={`text-xl font-black ${masteryColor}`}>{topic.mastery_percent}%</div>
+                                  <div className="text-[8px] uppercase font-bold text-gray-500 tracking-tighter">Mastery</div>
+                              </div>
                             </div>
-                          </div>
-                          <div className="h-2 bg-gray-900 rounded-full overflow-hidden border border-gray-800/50 mb-5">
-                             <div className="h-full bg-primary" style={{width: `${learnedPercent}%`}}></div>
-                          </div>
-                          <div className="flex gap-2">
-                             <button onClick={() => navigate(`/learn/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-white bg-primary py-2.5 rounded-xl">Study</button>
-                             <button onClick={() => navigate(`/quiz/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-black bg-white py-2.5 rounded-xl">Quiz</button>
-                             <button onClick={(e) => handleReset(e, topic)} className="p-2.5 text-gray-500 hover:text-rose-500 bg-gray-900 rounded-xl"><Icon name="trash-2" className="w-4 h-4" /></button>
-                          </div>
-                       </div>
+
+                            {topic.due_count > 0 && (
+                                <div className="absolute top-4 right-16 animate-pulse">
+                                    <div className="bg-orange-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase">
+                                        {topic.due_count} Due
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="h-1.5 bg-gray-900 rounded-full overflow-hidden border border-gray-800/50 mb-5">
+                               <div className="h-full bg-primary transition-all duration-1000 ease-out" style={{width: `${learnedPercent}%`}}></div>
+                            </div>
+                            <div className="flex gap-2">
+                               <button onClick={() => navigate(`/learn/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-white bg-primary py-2.5 rounded-xl hover:bg-primaryFocus transition-all">Study</button>
+                               <button onClick={() => navigate(`/quiz/${topic.topic_id}`)} className="flex-1 text-xs font-bold text-black bg-white py-2.5 rounded-xl hover:bg-gray-200 transition-all">Quiz</button>
+                               <button onClick={(e) => handleReset(e, topic)} className="p-2.5 text-gray-500 hover:text-rose-500 bg-gray-900 rounded-xl transition-colors"><Icon name="trash-2" className="w-4 h-4" /></button>
+                            </div>
+                         </div>
+                       </LazyCard>
                      )
                   })}
 
@@ -716,6 +874,10 @@ const Learn = ({ id }) => {
     };
 
     const goNext = () => {
+        // Silently record card as seen (rating 2 = Good) for spaced repetition
+        const card_id = cards[currentIndex].card_id;
+        api.post('/card/rate', { card_id, rating: 2 }).catch(() => {});
+
         resetPosition();
         setFlipped(false);
         setHint(null);
@@ -775,8 +937,8 @@ const Learn = ({ id }) => {
 
         // Visual intent thresholds
         const swipeThreshold = 80;
-        if (deltaX < -swipeThreshold) setSwipeStatus('next');
-        else if (deltaX > swipeThreshold) setSwipeStatus('prev');
+        if (deltaX > swipeThreshold) setSwipeStatus('next');
+        else if (deltaX < -swipeThreshold) setSwipeStatus('prev');
         else if (deltaY < -swipeThreshold && Math.abs(deltaY) > Math.abs(deltaX)) setSwipeStatus('deep-dive');
         else setSwipeStatus(null);
     };
@@ -791,13 +953,13 @@ const Learn = ({ id }) => {
         const swipeThreshold = 100;
 
         // Action thresholds
-        if (deltaX < -swipeThreshold) {
-            // Swipe left → next card
-            setTranslateX(-window.innerWidth * 1.5);
-            setTimeout(() => goNext(), 250);
-        } else if (deltaX > swipeThreshold) {
-            // Swipe right → previous card
+        if (deltaX > swipeThreshold) {
+            // Swipe right → next card
             setTranslateX(window.innerWidth * 1.5);
+            setTimeout(() => goNext(), 250);
+        } else if (deltaX < -swipeThreshold) {
+            // Swipe left → previous card
+            setTranslateX(-window.innerWidth * 1.5);
             setTimeout(() => goPrev(), 250);
         } else if (deltaY < -swipeThreshold && Math.abs(deltaY) > Math.abs(deltaX)) {
             // Swipe up → Deep Dive
@@ -897,7 +1059,7 @@ const Learn = ({ id }) => {
                     onPointerCancel={handlePointerUp}
                 >
                     {/* Inner wrapper for Flipping */}
-                    <div className="relative w-full h-full transition-transform duration-700" 
+                    <div className="relative w-full h-full transition-transform duration-700 animate-in zoom-in-90 duration-500" 
                          style={{ 
                             transformStyle: 'preserve-3d',
                             transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
@@ -948,20 +1110,20 @@ const Learn = ({ id }) => {
                              style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
                              <div className="absolute top-6 left-6 text-xs font-black tracking-widest text-success border border-success/20 bg-success/5 px-2 py-0.5 rounded-full uppercase">Explanation</div>
                              
-                             <div className="flex-1 flex items-center justify-center overflow-y-auto custom-scrollbar w-full py-6">
-                                <p className="text-lg sm:text-xl text-gray-200 leading-relaxed font-medium">
+                              <div className="flex-1 flex items-center justify-center overflow-y-auto custom-scrollbar w-full py-6">
+                                <p className="text-xl sm:text-2xl text-gray-200 leading-relaxed font-medium animate-in zoom-in-95 duration-500">
                                     {card.content}
                                 </p>
-                             </div>
+                              </div>
 
-                             <div className="mt-4 w-full pt-6 border-t border-gray-800 flex flex-col gap-3">
+                              <div className="mt-4 w-full pt-6 border-t border-gray-800 flex flex-col gap-3">
                                 <div className="text-[10px] uppercase font-black text-gray-500 tracking-widest">Swipe to navigate</div>
                                 <div className="flex justify-between w-full px-4 font-bold text-[10px]">
-                                   <div className="flex items-center gap-1 text-emerald-400"><Icon name="arrow-left" className="w-3 h-3" /> NEXT</div>
+                                   <div className="flex items-center gap-1 text-rose-400"><Icon name="arrow-left" className="w-3 h-3" /> PREV</div>
                                    <div className="flex items-center gap-1 text-primary hover:text-primaryFocus transition-colors cursor-pointer" onClick={() => triggerDeepDive()}><Icon name="arrow-up-right" className="w-3 h-3" /> DEEP DIVE</div>
-                                   <div className="flex items-center gap-1 text-rose-400">PREV <Icon name="arrow-left" className="w-3 h-3 transform rotate-180" /></div>
+                                   <div className="flex items-center gap-1 text-emerald-400">NEXT <Icon name="arrow-left" className="w-3 h-3 transform rotate-180" /></div>
                                 </div>
-                             </div>
+                              </div>
                         </div>
                     </div>
                 </div>
