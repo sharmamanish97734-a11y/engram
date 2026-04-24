@@ -683,23 +683,27 @@ const Learn = ({ id }) => {
         }
     };
 
-    const rateCard = async (rating) => {
+    const goNext = () => {
         resetPosition();
-        const card_id = cards[currentIndex].card_id;
-        try {
-            await api.post('/card/rate', { card_id, rating });
-            syncCurrentUser();
-            if (currentIndex < cards.length - 1) {
-                setFlipped(false);
-                setHint(null);
-                setDeepDive(null);
-                setShowDeepDiveDrawer(false);
-                setCurrentIndex(i => i + 1);
-            } else {
-                navigate('/topics');
-            }
-        } catch (err) {
-            console.error(err);
+        setFlipped(false);
+        setHint(null);
+        setDeepDive(null);
+        setShowDeepDiveDrawer(false);
+        if (currentIndex < cards.length - 1) {
+            setCurrentIndex(i => i + 1);
+        } else {
+            navigate('/topics');
+        }
+    };
+
+    const goPrev = () => {
+        resetPosition();
+        setFlipped(false);
+        setHint(null);
+        setDeepDive(null);
+        setShowDeepDiveDrawer(false);
+        if (currentIndex > 0) {
+            setCurrentIndex(i => i - 1);
         }
     };
 
@@ -739,8 +743,8 @@ const Learn = ({ id }) => {
 
         // Visual intent thresholds
         const swipeThreshold = 80;
-        if (deltaX < -swipeThreshold) setSwipeStatus('hard');
-        else if (deltaX > swipeThreshold) setSwipeStatus('good');
+        if (deltaX < -swipeThreshold) setSwipeStatus('prev');
+        else if (deltaX > swipeThreshold) setSwipeStatus('next');
         else if (deltaY < -swipeThreshold && Math.abs(deltaY) > Math.abs(deltaX)) setSwipeStatus('deep-dive');
         else setSwipeStatus(null);
     };
@@ -756,15 +760,15 @@ const Learn = ({ id }) => {
 
         // Action thresholds
         if (deltaX < -swipeThreshold) {
-            // Toss left
+            // Swipe left → previous card
             setTranslateX(-window.innerWidth * 1.5);
-            setTimeout(() => rateCard(1), 250); // Hard
+            setTimeout(() => goPrev(), 250);
         } else if (deltaX > swipeThreshold) {
-            // Toss right
+            // Swipe right → next card
             setTranslateX(window.innerWidth * 1.5);
-            setTimeout(() => rateCard(2), 250); // Good
+            setTimeout(() => goNext(), 250);
         } else if (deltaY < -swipeThreshold && Math.abs(deltaY) > Math.abs(deltaX)) {
-            // Toss up
+            // Swipe up → Deep Dive
             triggerDeepDive();
             resetPosition();
         } else {
@@ -854,8 +858,8 @@ const Learn = ({ id }) => {
                         
                         {/* Visual Stamp Overlays (Always on top) */}
                         <div className="absolute inset-0 z-50 pointer-events-none" style={{ transform: 'translateZ(50px)' }}>
-                           {swipeStatus === 'hard' && <div className="absolute top-8 right-8 border-4 border-rose-500 text-rose-500 font-black text-3xl px-4 py-1 rounded-xl uppercase rotate-12 bg-[#1A1A24]/90 backdrop-blur shadow-2xl">Hard</div>}
-                           {swipeStatus === 'good' && <div className="absolute top-8 left-8 border-4 border-emerald-500 text-emerald-500 font-black text-3xl px-4 py-1 rounded-xl uppercase -rotate-12 bg-[#1A1A24]/90 backdrop-blur shadow-2xl">Good</div>}
+                           {swipeStatus === 'prev' && <div className="absolute top-8 right-8 border-4 border-rose-400 text-rose-400 font-black text-3xl px-4 py-1 rounded-xl uppercase rotate-12 bg-[#1A1A24]/90 backdrop-blur shadow-2xl">← PREV</div>}
+                           {swipeStatus === 'next' && <div className="absolute top-8 left-8 border-4 border-emerald-400 text-emerald-400 font-black text-3xl px-4 py-1 rounded-xl uppercase -rotate-12 bg-[#1A1A24]/90 backdrop-blur shadow-2xl">NEXT →</div>}
                            {swipeStatus === 'deep-dive' && <div className="absolute bottom-16 left-1/2 -translate-x-1/2 border-4 border-primary text-primary font-black text-2xl px-6 py-2 rounded-xl uppercase bg-[#1A1A24]/90 backdrop-blur min-w-max shadow-2xl">✨ Deep Dive</div>}
                         </div>
 
@@ -903,11 +907,11 @@ const Learn = ({ id }) => {
                              </div>
 
                              <div className="mt-4 w-full pt-6 border-t border-gray-800 flex flex-col gap-3">
-                                <div className="text-[10px] uppercase font-black text-gray-500 tracking-widest">Swipe to rate</div>
+                                <div className="text-[10px] uppercase font-black text-gray-500 tracking-widest">Swipe to navigate</div>
                                 <div className="flex justify-between w-full px-4 font-bold text-[10px]">
-                                   <div className="flex items-center gap-1 text-rose-500"><Icon name="arrow-left" className="w-3 h-3" /> HARD</div>
+                                   <div className="flex items-center gap-1 text-rose-400"><Icon name="arrow-left" className="w-3 h-3" /> PREV</div>
                                    <div className="flex items-center gap-1 text-primary hover:text-primaryFocus transition-colors cursor-pointer" onClick={() => triggerDeepDive()}><Icon name="arrow-up-right" className="w-3 h-3" /> DEEP DIVE</div>
-                                   <div className="flex items-center gap-1 text-emerald-500">GOOD <Icon name="arrow-left" className="w-3 h-3 transform rotate-180" /></div>
+                                   <div className="flex items-center gap-1 text-emerald-400">NEXT <Icon name="arrow-left" className="w-3 h-3 transform rotate-180" /></div>
                                 </div>
                              </div>
                         </div>
@@ -915,12 +919,26 @@ const Learn = ({ id }) => {
                 </div>
             </div>
 
-            {/* Exact Control Buttons (Always shown below card like dating apps usually have buttons too) */}
-            <div className="flex justify-between gap-2 sm:gap-3 mt-8 relative z-10 transition-opacity duration-300" style={{ opacity: isDragging ? 0.3 : 1 }}>
-                    <button onClick={() => rateCard(0)} className="flex-1 bg-surface border border-gray-800 py-3 sm:py-4 rounded-xl text-rose-500 font-bold active:bg-rose-500 active:text-white transition-colors text-xs sm:text-sm">Skip</button>
-                    <button onClick={() => { setTranslateX(-window.innerWidth); setTimeout(()=>rateCard(1),200); }} className="flex-1 bg-surface border border-gray-800 py-3 sm:py-4 rounded-xl text-orange-500 font-bold active:bg-orange-500 active:text-white transition-colors text-xs sm:text-sm">Hard</button>
-                    <button onClick={() => { setTranslateX(window.innerWidth); setTimeout(()=>rateCard(2),200); }} className="flex-1 bg-surface border border-gray-800 py-3 sm:py-4 rounded-xl text-blue-500 font-bold active:bg-blue-500 active:text-white transition-colors text-xs sm:text-sm">Good</button>
-                    <button onClick={() => rateCard(3)} className="flex-1 bg-surface border border-gray-800 py-3 sm:py-4 rounded-xl text-emerald-500 font-bold active:bg-emerald-500 active:text-white transition-colors text-xs sm:text-sm">Easy</button>
+            {/* Navigation hint dots */}
+            <div className="flex items-center justify-center gap-3 mt-8 relative z-10">
+                <button 
+                    onClick={goPrev} 
+                    disabled={currentIndex === 0}
+                    className="w-12 h-12 rounded-full bg-surface border border-gray-800 flex items-center justify-center text-gray-400 hover:text-rose-400 hover:border-rose-400/40 disabled:opacity-20 transition-all"
+                >
+                    <Icon name="arrow-left" className="w-5 h-5" />
+                </button>
+                <div className="flex gap-1.5">
+                    {cards.map((_, i) => (
+                        <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === currentIndex ? 'w-6 bg-primary' : 'w-1.5 bg-gray-700'}`} />
+                    ))}
+                </div>
+                <button 
+                    onClick={goNext}
+                    className="w-12 h-12 rounded-full bg-surface border border-gray-800 flex items-center justify-center text-gray-400 hover:text-emerald-400 hover:border-emerald-400/40 transition-all"
+                >
+                    <Icon name="arrow-left" className="w-5 h-5 transform rotate-180" />
+                </button>
             </div>
         </Layout>
     );
