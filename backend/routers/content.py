@@ -233,8 +233,9 @@ def delete_topics_bulk(data: BulkDeleteRequest, db: Session = Depends(get_db), u
     
     count = 0
     for t in topics:
-        db.delete(t)
-        count += 1
+        if t in db:
+            db.delete(t)
+            count += 1
         
     db.commit()
     return {"status": "success", "message": f"Deleted {count} topics successfully."}

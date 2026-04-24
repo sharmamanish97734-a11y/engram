@@ -384,6 +384,7 @@ const Topics = () => {
   // Selection State
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Load suggestions when syllabus opens
   useEffect(() => {
@@ -432,6 +433,7 @@ const Topics = () => {
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
     if (confirm(`Are you sure you want to delete ${selectedIds.length} items? This will remove all associated cards and progress.`)) {
+      setIsDeleting(true);
       try {
         await api.post('/topics/delete-bulk', { topic_ids: selectedIds });
         setSelectedIds([]);
@@ -439,7 +441,10 @@ const Topics = () => {
         setActiveSyllabusId(null);
         refetch();
       } catch (err) {
-        alert("Failed to delete topics.");
+        console.error("Bulk delete error:", err);
+        alert(`Failed to delete topics: ${err.response?.data?.detail || err.message}`);
+      } finally {
+        setIsDeleting(false);
       }
     }
   };
@@ -669,9 +674,16 @@ const Topics = () => {
       )}
 
       {isSelectionMode && selectedIds.length > 0 && (
-         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1A1A24] border border-rose-500/30 rounded-2xl p-4 shadow-2xl flex items-center justify-between min-w-[280px] z-50">
+         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1A1A24] border border-rose-500/30 rounded-2xl p-4 shadow-2xl flex items-center justify-between min-w-[280px] z-50 animate-in fade-in slide-in-from-bottom-4">
             <span className="text-white font-bold">{selectedIds.length} Selected</span>
-            <button onClick={handleBulkDelete} className="bg-rose-500 text-white px-5 py-2 rounded-xl font-bold">Delete</button>
+            <button 
+               onClick={handleBulkDelete} 
+               disabled={isDeleting}
+               className="bg-rose-500 text-white px-5 py-2 rounded-xl font-bold disabled:opacity-50 flex items-center gap-2"
+            >
+               {isDeleting && <Icon name="loader" className="animate-spin w-4 h-4" />}
+               {isDeleting ? 'Deleting...' : 'Delete'}
+            </button>
          </div>
       )}
 
