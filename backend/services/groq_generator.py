@@ -117,7 +117,7 @@ The response MUST be a JSON object with this structure:
 }}
 Constraints:
 - {cards_per_topic} flashcards and {mcqs_per_topic} MCQs per subtopic.
-- Content must be in Hinglish (natural mix of Hindi and English) for explanations where helpful.
+- Content must be in English only. All questions, answers, and explanations in English.
 """
         try:
             response = self.client.chat.completions.create(

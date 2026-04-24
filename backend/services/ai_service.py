@@ -73,7 +73,7 @@ class AIService:
             return cached
 
         messages = [
-            {"role": "system", "content": f"You are an expert tutor for {topic}. Explain the connection between the question and the correct answer in Hinglish (natural mix of Hindi + English). Gently clarify why the user's choice was incorrect using Hinglish examples."},
+            {"role": "system", "content": f"You are an expert tutor for {topic}. Explain the connection between the question and the correct answer in clear English. Gently clarify why the user's choice was incorrect with examples."},
             {"role": "user", "content": f"Question: {question}\nCorrect Answer: {correct_option}\nUser Choice: {user_choice}"}
         ]
         
@@ -90,7 +90,7 @@ class AIService:
             return cached
 
         messages = [
-            {"role": "system", "content": "Provide a brief (1-sentence) hint for the given question in Hinglish. Do not reveal the answer directly."},
+            {"role": "system", "content": "Provide a brief (1-sentence) hint for the given question in English. Do not reveal the answer directly."},
             {"role": "user", "content": f"Question: {question}\nOptions: {options}"}
         ]
         
@@ -107,7 +107,7 @@ class AIService:
             return cached
 
         messages = [
-            {"role": "system", "content": "You are an expert tutor. Provide an extremely detailed, comprehensive explanation (a 'Deep Dive') of the given concept. Break it down with analogies, context, and examples. Use Hinglish (a natural, conversational mix of Hindi and English)."},
+            {"role": "system", "content": "You are an expert tutor. Provide an extremely detailed, comprehensive explanation (a 'Deep Dive') of the given concept in clear English. Break it down with analogies, context, and examples."},
             {"role": "user", "content": f"Concept: {title}\nCurrent summary: {content}\n\nPlease explain this in extreme depth."}
         ]
         
@@ -126,7 +126,7 @@ class AIService:
 
         # Prompt modified to fit JSON mode requirements (must be object)
         messages = [
-            {"role": "system", "content": "You are a learning content generator. Respond with a JSON object containing a key 'cards' which is an array of objects. Each object must have 'title' (in English) and 'content' (in Hinglish - a natural mix of Hindi and English)."},
+            {"role": "system", "content": "You are a learning content generator. Respond with a JSON object containing a key 'cards' which is an array of objects. Each object must have 'title' (in English) and 'content' (in English)."},
             {"role": "user", "content": f"Generate {count} learning cards for the topic: {topic} in JSON format."}
         ]
         
@@ -148,7 +148,7 @@ class AIService:
             return json.loads(cached)
 
         messages = [
-            {"role": "system", "content": "You are a quiz builder. Respond with a JSON object containing a key 'mcqs' which is an array. Each MCQ must have 'question' (in Hinglish - natural mix of Hindi + English), 'options' (array of 4 in Hinglish), 'correct_index' (0-3), and 'explanation' (in Hinglish)."},
+            {"role": "system", "content": "You are a quiz builder. Respond with a JSON object containing a key 'mcqs' which is an array. Each MCQ must have 'question' (in English), 'options' (array of 4 in English), 'correct_index' (0-3), and 'explanation' (in English). All content must be in English only."},
             {"role": "user", "content": f"Generate {count} {difficulty} MCQs for {topic} in JSON format."}
         ]
         
@@ -168,7 +168,7 @@ class AIService:
             return json.loads(cached)
 
         messages = [
-            {"role": "system", "content": "You are a study analyst. Respond with a JSON object analyzing student performance in Hinglish."},
+            {"role": "system", "content": "You are a study analyst. Respond with a JSON object analyzing student performance in English."},
             {"role": "user", "content": f"Analyze these wrong answers: {wrong_answers} and accuracies: {topic_accuracies} and summarize in JSON."}
         ]
         
