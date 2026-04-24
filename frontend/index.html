@@ -29,6 +29,18 @@
     body { background-color: #0A0A0F; color: #FFF; font-family: 'Inter', sans-serif; }
     /* Hide scrollbars */
     ::-webkit-scrollbar { width: 0px; background: transparent; }
+
+    /* Lazy reveal animation */
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    .lazy-hidden  { opacity: 0; transform: translateY(18px); transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.22,1,0.36,1); }
+    .lazy-visible { opacity: 1; transform: translateY(0); }
   </style>
 
   <!-- React & ReactDOM (v18 with useSyncExternalStore built-in) -->

@@ -9,6 +9,22 @@ const useStore = (store, selector) => {
 // --- GLOBAL DESTRUCTURING ---
 const { useState, useEffect, useMemo, useCallback, useSyncExternalStore, useRef } = React;
 
+// --- INTERSECTION OBSERVER LAZY REVEAL HOOK ---
+const useLazyReveal = (threshold = 0.12) => {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setVisible(true); obs.disconnect(); }
+    }, { threshold });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return [ref, visible];
+};
+
 // --- SIMPLE HASH ROUTER (no external dependency) ---
 const routerStore = window.createStore((set) => ({
   path: window.location.hash.slice(1) || '/',
@@ -117,6 +133,20 @@ const Card = ({ children, className = "" }) => (
 const Skeleton = ({ className = "" }) => (
   <div className={`animate-pulse bg-gray-800 rounded-lg ${className}`}></div>
 );
+
+// Lazy reveal wrapper — fades+slides in when it enters the viewport
+const LazyCard = ({ children, delay = 0, className = "" }) => {
+  const [ref, visible] = useLazyReveal();
+  return (
+    <div
+      ref={ref}
+      className={`${className} ${visible ? 'lazy-visible' : 'lazy-hidden'}`}
+      style={{ transitionDelay: visible ? `${delay}ms` : '0ms' }}
+    >
+      {children}
+    </div>
+  );
+};
 
 const Modal = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
@@ -492,30 +522,32 @@ const Topics = () => {
           {!activeSyllabusId ? (
             // SYLLABUS LIST VIEW
             <div className="grid grid-cols-1 gap-4">
-              {Array.isArray(data) && data?.filter(t => !t.parent_id).map((syllabus) => {
+              {Array.isArray(data) && data?.filter(t => !t.parent_id).map((syllabus, idx) => {
                 const subtopics = data?.filter(t => t.parent_id === syllabus.id) || [];
                 const isSelected = selectedIds.includes(syllabus.topic_id);
                 return (
-                  <div key={syllabus.id} 
-                    onClick={() => isSelectionMode ? toggleSelect(syllabus.topic_id) : setActiveSyllabusId(syllabus.id)}
-                    className={`group bg-surface border rounded-3xl p-6 transition-all relative cursor-pointer overflow-hidden ${isSelected ? 'border-primary bg-primary/5' : 'border-gray-800 hover:border-primary/50 hover:bg-[#1A1A24]'}`}
-                  >
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl transition-opacity group-hover:opacity-100 opacity-50"></div>
-                    <div className="flex justify-between items-start relative z-10">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                           <Icon name="book" className="text-primary w-5 h-5" />
-                           <span className="text-[10px] font-black uppercase tracking-widest text-primary px-2 py-0.5 bg-primary/10 rounded-full border border-primary/20">Course</span>
+                  <LazyCard key={syllabus.id} delay={idx * 60}>
+                    <div
+                      onClick={() => isSelectionMode ? toggleSelect(syllabus.topic_id) : setActiveSyllabusId(syllabus.id)}
+                      className={`group bg-surface border rounded-3xl p-6 transition-all relative cursor-pointer overflow-hidden ${isSelected ? 'border-primary bg-primary/5' : 'border-gray-800 hover:border-primary/50 hover:bg-[#1A1A24]'}`}
+                    >
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl transition-opacity group-hover:opacity-100 opacity-50"></div>
+                      <div className="flex justify-between items-start relative z-10">
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                             <Icon name="book" className="text-primary w-5 h-5" />
+                             <span className="text-[10px] font-black uppercase tracking-widest text-primary px-2 py-0.5 bg-primary/10 rounded-full border border-primary/20">Course</span>
+                          </div>
+                          <h3 className="text-xl font-bold text-white mb-1">{syllabus.name}</h3>
+                          <p className="text-sm text-gray-500 line-clamp-1">{syllabus.description || 'AI Generated Syllabus'}</p>
                         </div>
-                        <h3 className="text-xl font-bold text-white mb-1">{syllabus.name}</h3>
-                        <p className="text-sm text-gray-500 line-clamp-1">{syllabus.description || 'AI Generated Syllabus'}</p>
-                      </div>
-                      <div className="text-right">
-                         <div className="text-2xl font-black text-white/20 group-hover:text-primary/40 transition-colors">{subtopics.length}</div>
-                         <div className="text-[8px] font-bold text-gray-600 uppercase tracking-tighter">Topics</div>
+                        <div className="text-right">
+                           <div className="text-2xl font-black text-white/20 group-hover:text-primary/40 transition-colors">{subtopics.length}</div>
+                           <div className="text-[8px] font-bold text-gray-600 uppercase tracking-tighter">Topics</div>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </LazyCard>
                 );
               })}
             </div>
@@ -855,7 +887,8 @@ const Learn = ({ id }) => {
                         perspective: '1200px',
                         transform: `translate(${translateX}px, ${translateY}px) rotate(${rotate}deg)`,
                         transition: isDragging ? 'none' : 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                        zIndex: 20
+                        zIndex: 20,
+                        willChange: 'transform',
                     }}
                     onPointerDown={handlePointerDown}
                     onPointerMove={handlePointerMove}
@@ -972,6 +1005,19 @@ const Quiz = ({ id }) => {
    const [aiExplanation, setAiExplanation] = useState(null);
    const [isExplaining, setIsExplaining] = useState(false);
    const [showSolution, setShowSolution] = useState(false);
+   const [transitioning, setTransitioning] = useState(false); // smooth Q transition
+   const prefetchRef = useRef(null); // holds prefetched MCQ batch
+
+   // Prefetch next batch in background when near end
+   useEffect(() => {
+       if (!Array.isArray(mcqs) || mcqs.length === 0) return;
+       if (currentIndex >= mcqs.length - 3 && !prefetchRef.current) {
+           prefetchRef.current = 'loading';
+           api.get(id && id !== 'random' ? `/topics/${id}/mcqs` : '/mcq/random')
+               .then(r => { prefetchRef.current = r.data; })
+               .catch(() => { prefetchRef.current = null; });
+       }
+   }, [currentIndex, mcqs]);
 
    // Swipe state
    const [translateX, setTranslateX] = useState(0);
@@ -1050,16 +1096,26 @@ const Quiz = ({ id }) => {
    };
 
    const nextQuestion = () => {
-       setSelectedOption(null);
-       setResult(null);
-       setAiExplanation(null);
-       setShowSolution(false);
-       if (currentIndex < mcqs.length - 1) {
-           setCurrentIndex(i => i + 1);
-       } else {
-           refetch();
-           setCurrentIndex(0);
-       }
+       // Animate out first
+       setTransitioning(true);
+       setTimeout(() => {
+           setSelectedOption(null);
+           setResult(null);
+           setAiExplanation(null);
+           setShowSolution(false);
+           if (currentIndex < mcqs.length - 1) {
+               setCurrentIndex(i => i + 1);
+           } else if (prefetchRef.current && Array.isArray(prefetchRef.current)) {
+               // Swap in prefetched batch seamlessly
+               refetch();
+               setCurrentIndex(0);
+               prefetchRef.current = null;
+           } else {
+               refetch();
+               setCurrentIndex(0);
+           }
+           setTransitioning(false);
+       }, 180);
    };
 
    if (isLoading) return <Layout><div className="flex flex-col items-center justify-center p-12 text-gray-400">Loading quiz...</div></Layout>;
@@ -1085,6 +1141,10 @@ const Quiz = ({ id }) => {
                style={{
                    transform: `translateX(${translateX}px) rotate(${rotate}deg)`,
                    transition: isDragging ? 'none' : 'transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                   opacity: transitioning ? 0 : 1,
+                   transform: transitioning ? `translateX(${translateX}px) rotate(${rotate}deg) scale(0.96)` : `translateX(${translateX}px) rotate(${rotate}deg) scale(1)`,
+                   transition: isDragging ? 'none' : (transitioning ? 'opacity 0.18s ease, transform 0.18s ease' : 'transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.18s ease'),
+                   willChange: 'transform, opacity',
                }}
                onPointerDown={handleQuizPointerDown}
                onPointerMove={handleQuizPointerMove}
@@ -1108,14 +1168,25 @@ const Quiz = ({ id }) => {
                 {options.map((opt, i) => {
                     let className = "w-full text-left p-5 rounded-2xl border transition-all duration-200 text-lg font-medium ";
                     if (selectedOption === null) {
-                        className += "border-gray-800 bg-surface hover:bg-gray-800";
+                        className += "border-gray-800 bg-surface hover:bg-gray-800 hover:border-gray-600";
                     } else if (result) {
                         if (i === result.correct_index) className += "border-emerald-500 bg-emerald-500/20 text-emerald-400";
                         else if (i === selectedOption) className += "border-rose-500 bg-rose-500/20 text-rose-400";
                         else className += "border-gray-800 bg-surface opacity-50";
                     }
                     return (
-                        <button key={i} onClick={() => submitAnswer(i)} className={className} disabled={selectedOption !== null}>
+                        <button 
+                            key={`${currentIndex}-${i}`}
+                            onClick={() => submitAnswer(i)}
+                            className={className}
+                            disabled={selectedOption !== null}
+                            style={{
+                                animationDelay: `${i * 60}ms`,
+                                animation: !transitioning ? `fadeSlideUp 0.35s ease forwards` : 'none',
+                                opacity: 0,
+                                animationFillMode: 'forwards'
+                            }}
+                        >
                             {opt}
                         </button>
                     )
