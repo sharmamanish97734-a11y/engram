@@ -743,8 +743,8 @@ const Learn = ({ id }) => {
 
         // Visual intent thresholds
         const swipeThreshold = 80;
-        if (deltaX < -swipeThreshold) setSwipeStatus('prev');
-        else if (deltaX > swipeThreshold) setSwipeStatus('next');
+        if (deltaX < -swipeThreshold) setSwipeStatus('next');
+        else if (deltaX > swipeThreshold) setSwipeStatus('prev');
         else if (deltaY < -swipeThreshold && Math.abs(deltaY) > Math.abs(deltaX)) setSwipeStatus('deep-dive');
         else setSwipeStatus(null);
     };
@@ -760,13 +760,13 @@ const Learn = ({ id }) => {
 
         // Action thresholds
         if (deltaX < -swipeThreshold) {
-            // Swipe left → previous card
+            // Swipe left → next card
             setTranslateX(-window.innerWidth * 1.5);
-            setTimeout(() => goPrev(), 250);
-        } else if (deltaX > swipeThreshold) {
-            // Swipe right → next card
-            setTranslateX(window.innerWidth * 1.5);
             setTimeout(() => goNext(), 250);
+        } else if (deltaX > swipeThreshold) {
+            // Swipe right → previous card
+            setTranslateX(window.innerWidth * 1.5);
+            setTimeout(() => goPrev(), 250);
         } else if (deltaY < -swipeThreshold && Math.abs(deltaY) > Math.abs(deltaX)) {
             // Swipe up → Deep Dive
             triggerDeepDive();
@@ -858,8 +858,8 @@ const Learn = ({ id }) => {
                         
                         {/* Visual Stamp Overlays (Always on top) */}
                         <div className="absolute inset-0 z-50 pointer-events-none" style={{ transform: 'translateZ(50px)' }}>
-                           {swipeStatus === 'prev' && <div className="absolute top-8 right-8 border-4 border-rose-400 text-rose-400 font-black text-3xl px-4 py-1 rounded-xl uppercase rotate-12 bg-[#1A1A24]/90 backdrop-blur shadow-2xl">← PREV</div>}
-                           {swipeStatus === 'next' && <div className="absolute top-8 left-8 border-4 border-emerald-400 text-emerald-400 font-black text-3xl px-4 py-1 rounded-xl uppercase -rotate-12 bg-[#1A1A24]/90 backdrop-blur shadow-2xl">NEXT →</div>}
+                           {swipeStatus === 'next' && <div className="absolute top-8 right-8 border-4 border-emerald-400 text-emerald-400 font-black text-3xl px-4 py-1 rounded-xl uppercase rotate-12 bg-[#1A1A24]/90 backdrop-blur shadow-2xl">NEXT →</div>}
+                           {swipeStatus === 'prev' && <div className="absolute top-8 left-8 border-4 border-rose-400 text-rose-400 font-black text-3xl px-4 py-1 rounded-xl uppercase -rotate-12 bg-[#1A1A24]/90 backdrop-blur shadow-2xl">← PREV</div>}
                            {swipeStatus === 'deep-dive' && <div className="absolute bottom-16 left-1/2 -translate-x-1/2 border-4 border-primary text-primary font-black text-2xl px-6 py-2 rounded-xl uppercase bg-[#1A1A24]/90 backdrop-blur min-w-max shadow-2xl">✨ Deep Dive</div>}
                         </div>
 
@@ -909,9 +909,9 @@ const Learn = ({ id }) => {
                              <div className="mt-4 w-full pt-6 border-t border-gray-800 flex flex-col gap-3">
                                 <div className="text-[10px] uppercase font-black text-gray-500 tracking-widest">Swipe to navigate</div>
                                 <div className="flex justify-between w-full px-4 font-bold text-[10px]">
-                                   <div className="flex items-center gap-1 text-rose-400"><Icon name="arrow-left" className="w-3 h-3" /> PREV</div>
+                                   <div className="flex items-center gap-1 text-emerald-400"><Icon name="arrow-left" className="w-3 h-3" /> NEXT</div>
                                    <div className="flex items-center gap-1 text-primary hover:text-primaryFocus transition-colors cursor-pointer" onClick={() => triggerDeepDive()}><Icon name="arrow-up-right" className="w-3 h-3" /> DEEP DIVE</div>
-                                   <div className="flex items-center gap-1 text-emerald-400">NEXT <Icon name="arrow-left" className="w-3 h-3 transform rotate-180" /></div>
+                                   <div className="flex items-center gap-1 text-rose-400">PREV <Icon name="arrow-left" className="w-3 h-3 transform rotate-180" /></div>
                                 </div>
                              </div>
                         </div>
