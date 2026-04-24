@@ -797,24 +797,39 @@ const Learn = ({ id }) => {
 
             {/* Deep Dive Drawer */}
             {showDeepDiveDrawer && (
-                <div className="absolute inset-0 z-50 bg-[#0A0A0F]/95 backdrop-blur-md flex flex-col pt-12 animate-in slide-in-from-bottom-full duration-500">
-                     <div className="p-6 flex-1 flex flex-col h-full">
-                        <button onClick={() => setShowDeepDiveDrawer(false)} className="text-gray-400 hover:text-white mb-6 p-2 rounded-lg border border-gray-800 bg-surface flex items-center gap-2 self-start">
+                <div className="absolute inset-0 z-50 bg-gradient-to-b from-[#0A0A0F] to-[#0F0F1A] backdrop-blur-md flex flex-col pt-12 animate-in slide-in-from-bottom-full duration-500">
+                     <div className="p-6 flex-1 flex flex-col h-full overflow-hidden">
+                        <button onClick={() => setShowDeepDiveDrawer(false)} className="text-gray-400 hover:text-white mb-6 px-4 py-2 rounded-xl border border-gray-800 bg-surface flex items-center gap-2 self-start text-sm font-semibold transition-all hover:border-gray-600">
                              <Icon name="arrow-down-left" /> Back to Card
                         </button>
-                        <h2 className="text-2xl font-bold text-white mb-4">Deep Dive: {card.title}</h2>
-                        <div className="flex-1 overflow-y-auto pr-2 pb-12 custom-scrollbar">
+
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="bg-primary/15 p-3 rounded-2xl">
+                                <Icon name="brain" className="w-6 h-6 text-primary" />
+                            </div>
+                            <div>
+                                <div className="text-[10px] font-black uppercase tracking-widest text-primary/70 mb-0.5">✨ Deep Dive</div>
+                                <h2 className="text-xl font-bold text-white leading-tight">{card.title}</h2>
+                            </div>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto pr-1 pb-12 space-y-4">
                             {isDeepDiving ? (
-                                <div className="flex flex-col gap-3">
-                                    <Skeleton className="h-4 w-full" />
-                                    <Skeleton className="h-4 w-11/12" />
-                                    <Skeleton className="h-4 w-4/5" />
-                                    <Skeleton className="h-4 w-full mt-4" />
-                                    <Skeleton className="h-4 w-10/12" />
+                                <div className="flex flex-col gap-4">
+                                    <div className="h-5 w-full bg-gray-800 rounded-xl animate-pulse" />
+                                    <div className="h-5 w-11/12 bg-gray-800 rounded-xl animate-pulse" />
+                                    <div className="h-5 w-4/5 bg-gray-800 rounded-xl animate-pulse" />
+                                    <div className="h-5 w-full bg-gray-800 rounded-xl animate-pulse mt-2" />
+                                    <div className="h-5 w-10/12 bg-gray-800 rounded-xl animate-pulse" />
+                                    <div className="h-5 w-3/4 bg-gray-800 rounded-xl animate-pulse" />
                                 </div>
                             ) : (
-                                <div className="text-gray-300 leading-relaxed space-y-4">
-                                    {deepDive?.split('\n').map((para, i) => para.trim() ? <p key={i}>{para}</p> : null)}
+                                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    {deepDive?.split('\n').map((para, i) => para.trim() ? (
+                                        <div key={i} className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 text-[15px] text-gray-200 leading-relaxed" style={{ animationDelay: `${i * 80}ms` }}>
+                                            {para}
+                                        </div>
+                                    ) : null)}
                                 </div>
                             )}
                         </div>
@@ -1121,35 +1136,48 @@ const Quiz = ({ id }) => {
                     {!showSolution ? (
                         <button 
                             onClick={() => setShowSolution(true)}
-                            className="w-full mb-6 py-4 bg-[#0A0A0F]/50 border border-gray-800 rounded-2xl flex flex-col items-center justify-center gap-2 group hover:border-primary/50 transition-all"
+                            className="w-full mb-6 py-5 bg-gradient-to-br from-primary/10 to-primaryFocus/5 border border-primary/30 rounded-2xl flex flex-col items-center justify-center gap-3 group hover:border-primary/60 hover:from-primary/15 transition-all"
                         >
-                            <div className="bg-primary/10 text-primary p-3 rounded-full group-hover:scale-110 transition-transform">
-                                <Icon name="brain" className="w-6 h-6" />
+                            <div className="bg-primary/20 text-primary p-3.5 rounded-full group-hover:scale-110 group-hover:bg-primary/30 transition-all">
+                                <Icon name="brain" className="w-7 h-7" />
                             </div>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-primary">View AI Solution</span>
+                            <div className="text-center">
+                                <div className="text-sm font-black text-primary">View AI Solution</div>
+                                <div className="text-[10px] text-primary/50 mt-0.5">Tap karo — samjhata hoon 😊</div>
+                            </div>
                         </button>
                     ) : (
                         <>
-                            <div className="text-gray-300 text-sm mb-4 leading-relaxed bg-[#0A0A0F]/50 p-4 rounded-xl border border-gray-800 animate-in fade-in slide-in-from-top-2 duration-300">
-                                {result.explanation}
+                            {/* Explanation block */}
+                            <div className="mb-5 animate-in fade-in slide-in-from-bottom-3 duration-400">
+                                <div className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Why this answer?</div>
+                                <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 text-[15px] text-gray-200 leading-relaxed">
+                                    {result.explanation}
+                                </div>
                             </div>
 
                             {/* AI Deep Dive Section */}
-                            <div className="mb-6 border-t border-gray-800/50 pt-4 animate-in fade-in slide-in-from-top-2 duration-500">
+                            <div className="mb-5 border-t border-gray-800/50 pt-4 animate-in fade-in slide-in-from-bottom-3 duration-600">
                                 <div className="flex items-center gap-2 mb-3">
-                                    <Icon name="brain" className="text-primary w-3.5 h-3.5" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-primary">AI Deep Dive</span>
+                                    <div className="bg-primary/15 p-1.5 rounded-lg">
+                                        <Icon name="brain" className="text-primary w-4 h-4" />
+                                    </div>
+                                    <span className="text-[11px] font-black uppercase tracking-widest text-primary">✨ AI Deep Dive</span>
                                 </div>
                                 {isExplaining ? (
-                                    <div className="space-y-2">
-                                        <Skeleton className="h-3 w-full" />
-                                        <Skeleton className="h-3 w-[90%]" />
-                                        <Skeleton className="h-3 w-[70%]" />
+                                    <div className="space-y-3">
+                                        <div className="h-4 w-full bg-gray-800 rounded-xl animate-pulse" />
+                                        <div className="h-4 w-[90%] bg-gray-800 rounded-xl animate-pulse" />
+                                        <div className="h-4 w-[70%] bg-gray-800 rounded-xl animate-pulse" />
                                     </div>
                                 ) : (
-                                    <p className="text-[13px] text-gray-400 leading-relaxed italic">
-                                        {aiExplanation}
-                                    </p>
+                                    <div className="space-y-3">
+                                        {aiExplanation?.split('\n').map((para, i) => para.trim() ? (
+                                            <div key={i} className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 text-[14px] text-gray-300 leading-relaxed animate-in fade-in duration-500">
+                                                {para}
+                                            </div>
+                                        ) : null)}
+                                    </div>
                                 )}
                             </div>
                         </>
