@@ -53,7 +53,7 @@ const isLocal = window.location.hostname === 'localhost' ||
                  window.location.hostname.startsWith('192.168.');
 
 const API_BASE = isLocal
-  ? `http://${window.location.hostname}:8000`
+  ? `http://${window.location.hostname}:8080`
   : "https://engram-backend-hckw.onrender.com";
 
 
@@ -338,7 +338,7 @@ const Topics = () => {
   
   // Drill-down State
   const [activeSyllabusId, setActiveSyllabusId] = useState(null);
-  const activeSyllabus = useMemo(() => data?.find(t => t.id === activeSyllabusId), [data, activeSyllabusId]);
+  const activeSyllabus = useMemo(() => Array.isArray(data) ? data.find(t => t.id === activeSyllabusId) : null, [data, activeSyllabusId]);
 
   // Suggestions State
   const [suggestions, setSuggestions] = useState([]);
@@ -492,7 +492,7 @@ const Topics = () => {
           {!activeSyllabusId ? (
             // SYLLABUS LIST VIEW
             <div className="grid grid-cols-1 gap-4">
-              {data?.filter(t => !t.parent_id).map((syllabus) => {
+              {Array.isArray(data) && data?.filter(t => !t.parent_id).map((syllabus) => {
                 const subtopics = data?.filter(t => t.parent_id === syllabus.id) || [];
                 const isSelected = selectedIds.includes(syllabus.topic_id);
                 return (
@@ -530,7 +530,7 @@ const Topics = () => {
                </div>
 
                <div className="space-y-4">
-                  {data?.filter(t => t.parent_id === activeSyllabusId).map((topic) => {
+                  {Array.isArray(data) && data?.filter(t => t.parent_id === activeSyllabusId).map((topic) => {
                      const totalCards = topic.card_count + topic.mcq_count;
                      const learnedPercent = totalCards > 0 ? (topic.learned_count / totalCards) * 100 : 0;
                      const masteryColor = topic.mastery_percent > 80 ? 'text-emerald-400' : topic.mastery_percent > 40 ? 'text-blue-400' : 'text-gray-400';
@@ -938,6 +938,7 @@ const Quiz = ({ id }) => {
    const [result, setResult] = useState(null);
    const [aiExplanation, setAiExplanation] = useState(null);
    const [isExplaining, setIsExplaining] = useState(false);
+   const [showSolution, setShowSolution] = useState(false);
 
    const submitAnswer = async (index) => {
        if (selectedOption !== null) return;
@@ -973,6 +974,7 @@ const Quiz = ({ id }) => {
        setSelectedOption(null);
        setResult(null);
        setAiExplanation(null);
+       setShowSolution(false);
        if (currentIndex < mcqs.length - 1) {
            setCurrentIndex(i => i + 1);
        } else {
@@ -982,7 +984,7 @@ const Quiz = ({ id }) => {
    };
 
    if (isLoading) return <Layout><div className="flex flex-col items-center justify-center p-12 text-gray-400">Loading quiz...</div></Layout>;
-   if (!mcqs || mcqs.length === 0) return <Layout><div className="p-12 text-center text-gray-400">No questions found.</div></Layout>;
+   if (!Array.isArray(mcqs) || mcqs.length === 0) return <Layout><div className="p-12 text-center text-gray-400">No questions found.</div></Layout>;
 
    const mcq = mcqs[currentIndex];
    let options = [];
@@ -1030,28 +1032,42 @@ const Quiz = ({ id }) => {
                             {result.wallet_delta > 0 ? '+' : ''}₹{result.wallet_delta.toFixed(0)}
                         </div>
                     </div>
-                    <div className="text-gray-300 text-sm mb-4 leading-relaxed bg-[#0A0A0F]/50 p-4 rounded-xl border border-gray-800">
-                        {result.explanation}
-                    </div>
-
-                    {/* AI Deep Dive Section */}
-                    <div className="mb-6 border-t border-gray-800/50 pt-4">
-                        <div className="flex items-center gap-2 mb-3">
-                            <Icon name="brain" className="text-primary w-3.5 h-3.5" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-primary">AI Deep Dive</span>
-                        </div>
-                        {isExplaining ? (
-                            <div className="space-y-2">
-                                <Skeleton className="h-3 w-full" />
-                                <Skeleton className="h-3 w-[90%]" />
-                                <Skeleton className="h-3 w-[70%]" />
+                    {!showSolution ? (
+                        <button 
+                            onClick={() => setShowSolution(true)}
+                            className="w-full mb-6 py-4 bg-[#0A0A0F]/50 border border-gray-800 rounded-2xl flex flex-col items-center justify-center gap-2 group hover:border-primary/50 transition-all"
+                        >
+                            <div className="bg-primary/10 text-primary p-3 rounded-full group-hover:scale-110 transition-transform">
+                                <Icon name="brain" className="w-6 h-6" />
                             </div>
-                        ) : (
-                            <p className="text-[13px] text-gray-400 leading-relaxed italic animate-in fade-in duration-700">
-                                {aiExplanation}
-                            </p>
-                        )}
-                    </div>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-primary">View AI Solution</span>
+                        </button>
+                    ) : (
+                        <>
+                            <div className="text-gray-300 text-sm mb-4 leading-relaxed bg-[#0A0A0F]/50 p-4 rounded-xl border border-gray-800 animate-in fade-in slide-in-from-top-2 duration-300">
+                                {result.explanation}
+                            </div>
+
+                            {/* AI Deep Dive Section */}
+                            <div className="mb-6 border-t border-gray-800/50 pt-4 animate-in fade-in slide-in-from-top-2 duration-500">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Icon name="brain" className="text-primary w-3.5 h-3.5" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-primary">AI Deep Dive</span>
+                                </div>
+                                {isExplaining ? (
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-3 w-full" />
+                                        <Skeleton className="h-3 w-[90%]" />
+                                        <Skeleton className="h-3 w-[70%]" />
+                                    </div>
+                                ) : (
+                                    <p className="text-[13px] text-gray-400 leading-relaxed italic">
+                                        {aiExplanation}
+                                    </p>
+                                )}
+                            </div>
+                        </>
+                    )}
 
                     <Button onClick={nextQuestion} variant={result.correct ? 'success' : 'danger'}>Next Question</Button>
                 </div>
