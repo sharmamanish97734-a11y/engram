@@ -1182,9 +1182,7 @@ const Quiz = ({ id }) => {
                             disabled={selectedOption !== null}
                             style={{
                                 animationDelay: `${i * 60}ms`,
-                                animation: !transitioning ? `fadeSlideUp 0.35s ease forwards` : 'none',
-                                opacity: 0,
-                                animationFillMode: 'forwards'
+                                animation: !transitioning ? `fadeSlideUp 0.35s ease both` : 'none',
                             }}
                         >
                             {opt}
